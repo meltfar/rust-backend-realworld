@@ -1,0 +1,14 @@
+[package]
+name = "crontab-audit-extension"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["crates/models"]
+
+[dependencies]
+models = { path = "./crates/models" }
+anyhow = "*"
+chrono = "*"
+log = "*"
+env_logger = "*"
