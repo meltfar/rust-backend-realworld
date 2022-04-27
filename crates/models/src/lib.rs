@@ -1,4 +1,3 @@
-extern crate anyhow;
 #[macro_use]
 extern crate diesel;
 
@@ -14,14 +13,16 @@ pub fn establish_connection() -> MysqlConnection {
         .expect(&format!("Error connecting to...{}", database_url))
 }
 
-pub fn test_11(conn: &MysqlConnection) -> anyhow::Result<Vec<model::ConfigVersion>> {
+pub fn get_config_version(conn: &MysqlConnection) -> anyhow::Result<model::ConfigVersion> {
     use schema::config_version::dsl::*;
 
-    let ret = config_version
+    let mut ret = config_version
         .filter(id.eq(1))
         .load::<model::ConfigVersion>(conn)?;
-
     dbg!(&ret);
-
-    Ok(ret)
+    if ret.len() > 1 {
+        Ok(ret.remove(0))
+    } else {
+        Err(anyhow::anyhow!("no config version found"))
+    }
 }

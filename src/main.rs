@@ -3,13 +3,11 @@ use models::establish_connection;
 fn main() -> anyhow::Result<()> {
     println!("Hello, world!");
     let connection = establish_connection();
-    let ret = models::test_11(&connection)?;
+    let ret = models::get_config_version(&connection)?;
 
-    for cv in ret {
-        println!("id: {}", cv.id);
-        println!("ca: {}", cv.created_at);
-        println!("ua: {}", cv.updated_at);
-    }
+    println!("id: {}", ret.id);
+    println!("ca: {}", ret.created_at);
+    println!("ua: {}", ret.updated_at);
 
     Ok(())
 }
