@@ -20,7 +20,7 @@ pub fn get_config_version(conn: &MysqlConnection) -> anyhow::Result<model::Confi
         .filter(id.eq(1))
         .load::<model::ConfigVersion>(conn)?;
     dbg!(&ret);
-    if ret.len() > 1 {
+    if ret.len() > 0 {
         Ok(ret.remove(0))
     } else {
         Err(anyhow::anyhow!("no config version found"))

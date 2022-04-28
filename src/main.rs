@@ -7,6 +7,8 @@ fn main() -> anyhow::Result<()> {
 
     println!("id: {}", ret.id);
     println!("ca: {}", ret.created_at);
+    println!("version: {}", ret.version);
+    println!("sub: {}", ret.sub_version);
     println!("ua: {}", ret.updated_at);
 
     Ok(())
