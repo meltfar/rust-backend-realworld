@@ -1,28 +1,17 @@
-#[macro_use]
-extern crate diesel;
-
-use diesel::mysql::MysqlConnection;
-use diesel::prelude::*;
+use sea_orm::{Database, DatabaseConnection};
 
 pub mod model;
 pub mod schema;
 
-pub fn establish_connection() -> MysqlConnection {
+pub async fn establish_connection() -> DatabaseConnection {
     let database_url = "mysql://root:root@192.168.0.3:3306/mgateway";
-    MysqlConnection::establish(&database_url)
-        .expect(&format!("Error connecting to...{}", database_url))
+    let db = Database::connect(database_url).await.expect(&format!("failed to connect to: {}", database_url));
+
+    return db;
 }
 
-pub fn get_config_version(conn: &MysqlConnection) -> anyhow::Result<model::ConfigVersion> {
-    use schema::config_version::dsl::*;
+// TODO: generate schemas of mysql
+pub fn enable_tracing() {
 
-    let mut ret = config_version
-        .filter(id.eq(1))
-        .load::<model::ConfigVersion>(conn)?;
-    dbg!(&ret);
-    if ret.len() > 0 {
-        Ok(ret.remove(0))
-    } else {
-        Err(anyhow::anyhow!("no config version found"))
-    }
 }
+
