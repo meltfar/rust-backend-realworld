@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = "0"
+chrono = "*"
 anyhow = "*"
-sea-orm = { version = "*", features = ["sqlx-mysql", "runtime-actix-native-tls", "macros", "debug-print"] }
+sea-orm = { version = "^0", features = ["sqlx-mysql", "runtime-actix-native-tls", "macros", "debug-print"] }
+serde = { version = "*" }
