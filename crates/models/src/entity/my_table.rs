@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +12,30 @@ pub struct Model {
     pub email: Option<String>,
     pub date: Option<String>,
     pub time: Option<String>,
+}
+
+pub enum TestModelForQuery {
+    Table,
+    Id,
+    Name,
+    Phone,
+    Email,
+    Date,
+    Time,
+}
+
+impl Iden for TestModelForQuery {
+    fn unquoted(&self, s: &mut dyn Write) {
+        write!(s, "{}", match self {
+            Self::Table => "myTable",
+            Self::Id => "id",
+            Self::Name => "name",
+            Self::Phone => "phone",
+            Self::Email => "email",
+            Self::Date => "date",
+            Self::Time => "time",
+        }).unwrap()
+    }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
