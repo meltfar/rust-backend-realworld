@@ -2,4 +2,22 @@
 
 pub mod prelude;
 
-pub mod my_table;
+pub mod action_record;
+pub mod config_version;
+pub mod deleted_data;
+pub mod matcher;
+pub mod matcher_module;
+pub mod matcher_module_snapshot;
+pub mod matcher_snapshot;
+pub mod matcher_test;
+pub mod module;
+pub mod module_config;
+pub mod module_config_snapshot;
+pub mod module_snapshot;
+pub mod ng_admin_user;
+pub mod ng_admin_user_group;
+pub mod ng_host;
+pub mod request_config;
+pub mod request_config_snapshot;
+pub mod snapshot_info;
+pub mod upstream;

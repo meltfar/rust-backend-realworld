@@ -13,3 +13,9 @@ chrono = "*"
 log = "*"
 env_logger = "*"
 actix-web = "*"
+rbatis = { version = "*", default-features = false, features = [
+    "mysql",
+    "runtime-actix-native-tls",
+    "debug_mode",
+] }
+serde = { version = "*" }
