@@ -19,3 +19,5 @@ rbatis = { version = "*", default-features = false, features = [
     "debug_mode",
 ] }
 serde = { version = "*" }
+sqlx = { version = "*", features = ["runtime-actix-native-tls", "mysql"] }
+futures = "*"
