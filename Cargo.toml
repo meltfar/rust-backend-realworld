@@ -3,11 +3,11 @@ name = "crontab-audit-extension"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-members = ["crates/models"]
+#[workspace]
+#members = ["crates/models"]
 
 [dependencies]
-models = { path = "./crates/models" }
+#models = { path = "./crates/models" }
 anyhow = "*"
 chrono = "*"
 log = "*"
@@ -18,6 +18,7 @@ rbatis = { version = "*", default-features = false, features = [
     "runtime-actix-native-tls",
     "debug_mode",
 ] }
-serde = { version = "*" }
-sqlx = { version = "*", features = ["runtime-actix-native-tls", "mysql"] }
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+sqlx = { version = "*", default-features = false, features = ["runtime-actix-native-tls", "mysql", "chrono", "macros", "migrate", "decimal", "bigdecimal"] }
 futures = "*"

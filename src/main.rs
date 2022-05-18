@@ -1,12 +1,14 @@
 use std::io::Write;
+use std::ops::{Deref, DerefMut};
 
 use futures::StreamExt;
 use rbatis::{
     crud::{CRUD, CRUDTable},
     rbatis::Rbatis,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::{Column, FromRow, Row};
+use sqlx::types::chrono::NaiveDateTime;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct MatcherModel {
@@ -22,22 +24,73 @@ struct MatcherModel {
     pub match_method: String,
 }
 
-#[derive(FromRow, Debug)]
-#[allow(dead_code)]
-struct MatcherModelSqlx {
-    pub id: i64,
-    pub match_type: i32,
-    pub match_value: String,
-    pub match_target: i32,
-    pub version: i32,
-    pub deleted_at: Option<chrono::NaiveDateTime>,
-    pub created_at: chrono::NaiveDateTime,
-    pub updated_at: chrono::NaiveDateTime,
-    pub upstream: String,
-    pub match_method: String,
+mod my_date_format {
+    use chrono::NaiveDateTime;
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
+
+    pub fn serialize<S>(
+        date: &NaiveDateTime,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let s = format!("{}", date.format(FORMAT));
+        serializer.serialize_str(&s)
+    }
+
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<NaiveDateTime, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        NaiveDateTime::parse_from_str(&s, FORMAT).map_err(serde::de::Error::custom)
+    }
+}
+
+mod my_date_format_optional {
+    use chrono::NaiveDateTime;
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
+
+    pub fn serialize<S>(
+        date: &Option<NaiveDateTime>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        if let Some(s) = date {
+            let s = format!("{}", s.format(FORMAT));
+            serializer.serialize_str(&s)
+        } else {
+            serializer.serialize_str("")
+        }
+    }
+
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<Option<NaiveDateTime>, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s == "" {
+            return Ok(None);
+        }
+        NaiveDateTime::parse_from_str(&s, FORMAT).map(|v| Some(v)).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug)]
+struct MyNaiveDateTime(NaiveDateTime);
+
+#[derive(Debug, Deserialize, Serialize, FromRow)]
 #[allow(dead_code)]
 struct MatcherModelMacro {
     pub id: i64,
@@ -45,11 +98,47 @@ struct MatcherModelMacro {
     pub match_value: String,
     pub match_target: i32,
     pub version: i32,
-    pub deleted_at: Option<sqlx::types::time::PrimitiveDateTime>,
-    pub created_at: sqlx::types::time::PrimitiveDateTime,
-    pub updated_at: sqlx::types::time::PrimitiveDateTime,
+    #[serde(with = "my_date_format_optional")]
+    pub deleted_at: Option<NaiveDateTime>,
+    #[serde(with = "my_date_format")]
+    pub created_at: NaiveDateTime,
+    #[serde(with = "my_date_format")]
+    pub updated_at: NaiveDateTime,
     pub upstream: String,
     pub match_method: String,
+}
+
+// so, it turns out that introduce a new type to replace NaiveDateTime will NOT work.
+// The only way to marshal date to string is to use a trait: serde(with = "module_name").
+
+const FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S";
+
+impl Serialize for MyNaiveDateTime {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let s = self.format(FORMAT_STR);
+        serializer.serialize_str(&s.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for MyNaiveDateTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        let s = String::deserialize(deserializer)?;
+        NaiveDateTime::parse_from_str(&s, FORMAT_STR).map(|r| MyNaiveDateTime(r)).map_err(serde::de::Error::custom)
+    }
+}
+
+impl Deref for MyNaiveDateTime {
+    type Target = NaiveDateTime;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for MyNaiveDateTime {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 impl CRUDTable for MatcherModel {
@@ -76,7 +165,7 @@ async fn test_for_sqlx() -> anyhow::Result<()> {
 
     log::info!("=================== response mappings ====================");
 
-    let stream_ret = sqlx::query_as::<_, MatcherModelSqlx>("SELECT * FROM matcher WHERE match_value LIKE ? LIMIT 10").bind("%/v1.0%").fetch(&pool);
+    let stream_ret = sqlx::query_as::<sqlx::MySql, MatcherModelMacro>("SELECT * FROM matcher WHERE match_value LIKE ? LIMIT 10").bind("%/v1.0%").fetch(&pool);
 
     stream_ret.for_each(|v| {
         if let Ok(mm) = v {
@@ -87,10 +176,13 @@ async fn test_for_sqlx() -> anyhow::Result<()> {
 
     log::info!("==================== use macro to check validity and mapping ===================");
 
-    let matchers = sqlx::query_as!(MatcherModelMacro, "SELECT * FROM matcher WHERE match_value LIKE ? LIMIT ?", "%/v1.0%", 10).fetch_all(&pool).await?;
+    let matchers = sqlx::query_as!(MatcherModelMacro, "SELECT * FROM matcher WHERE match_value LIKE ? LIMIT ?", "%/v1.0%", 10i32).fetch_all(&pool).await?;
 
     for m in matchers {
         log::info!("{:#?}", m);
+        log::info!("{}", m.created_at.format("%Y-%m-%d %H:%M:%S"));
+        let json_out = serde_json::to_string(&m)?;
+        log::info!("{}", json_out);
     }
 
     Ok(())
