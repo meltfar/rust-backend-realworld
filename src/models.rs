@@ -88,4 +88,41 @@ pub mod models {
         pub raw_body: String,
         pub real_auditor_name: String,
     }
+
+    impl AuditInfo {
+        pub async fn get_by_id(
+            pool: &sqlx::Pool<sqlx::MySql>,
+            id: i64,
+        ) -> Result<AuditInfo, sqlx::Error> {
+            return sqlx::query_as::<_, AuditInfo>("SELECT * FROM audit_info WHERE id = ? LIMIT 1")
+                .bind(id)
+                .fetch_one(pool)
+                .await;
+        }
+
+        pub async fn get_list_by_job_id(
+            pool: &sqlx::Pool<sqlx::MySql>,
+            job_id: i64,
+        ) -> Result<Vec<AuditInfo>, sqlx::Error> {
+            return sqlx::query_as::<_, AuditInfo>("SELECT * FROM audit_info WHERE job_id = ?")
+                .bind(job_id)
+                .fetch_all(pool)
+                .await;
+        }
+
+        pub async fn get_list_by_node_address<T>(
+            pool: &sqlx::Pool<sqlx::MySql>,
+            addr: T,
+        ) -> Result<Vec<AuditInfo>, sqlx::Error>
+        where
+            T: AsRef<str> + Send + Sync,
+        {
+            return sqlx::query_as::<_, AuditInfo>(
+                "SELECT * FROM audit_info WHERE node_address = ?",
+            )
+            .bind(addr.as_ref())
+            .fetch_all(pool)
+            .await;
+        }
+    }
 }

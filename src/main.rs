@@ -234,15 +234,13 @@ async fn testtt(
     request: actix_web::HttpRequest,
     pool: web::Data<sqlx::MySqlPool>,
 ) -> actix_web::Result<impl actix_web::Responder> {
-    let i: &sqlx::MySqlPool = &pool;
-    let r = sqlx::query_as::<sqlx::MySql, entity_models::AuditInfo>(
-        "SELECT * FROM audit_info LIMIT 10",
-    )
-    .fetch_all(i)
-    .await
-    .map_err(actix_web::error::ErrorInternalServerError)?;
+    let ret = models::models::AuditInfo::get_by_id(&pool, 10)
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    return Ok(actix_web::web::Json(r));
+    models::models::AuditInfo::get_list_by_node_address(&pool, "123123");
+
+    return Ok(actix_web::web::Json(ret));
 }
 
 #[actix_web::main]
@@ -274,8 +272,6 @@ async fn main() -> anyhow::Result<()> {
 
     let ret = rb.fetch_list_by_wrapper::<MatcherModel>(wrapper).await?;
     log::info!("{:#?}", ret);
-
-    // let pool_arc = std::sync::Arc::new(pool);
 
     HttpServer::new(move || {
         actix_web::App::new()
