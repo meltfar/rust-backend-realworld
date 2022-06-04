@@ -5,7 +5,6 @@ edition = "2021"
 
 #[workspace]
 #members = ["crates/models"]
-
 [dependencies]
 #models = { path = "./crates/models" }
 anyhow = "*"
@@ -20,5 +19,19 @@ rbatis = { version = "*", default-features = false, features = [
 ] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
-sqlx = { version = "*", default-features = false, features = ["runtime-actix-native-tls", "mysql", "chrono", "macros", "migrate", "decimal", "bigdecimal"] }
+sqlx = { version = "*", default-features = false, features = [
+    "runtime-actix-native-tls",
+    "mysql",
+    "chrono",
+    "macros",
+    "migrate",
+    "decimal",
+    "bigdecimal"
+] }
 futures = "*"
+sea-orm = { version = "*", features = [
+    "sqlx-mysql",
+    "runtime-actix-native-tls",
+    "debug-print",
+    "macros"
+] }

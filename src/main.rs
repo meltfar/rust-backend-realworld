@@ -1,14 +1,18 @@
 use std::io::Write;
 use std::ops::{Deref, DerefMut};
 
+use actix_web::{web, HttpServer};
 use futures::StreamExt;
 use rbatis::{
-    crud::{CRUD, CRUDTable},
+    crud::{CRUDTable, CRUD},
     rbatis::Rbatis,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sqlx::{Column, FromRow, Row};
 use sqlx::types::chrono::NaiveDateTime;
+use sqlx::{Column, FromRow, Row};
+
+mod models;
+use models::models as entity_models;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct MatcherModel {
@@ -30,22 +34,17 @@ mod my_date_format {
 
     const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
 
-    pub fn serialize<S>(
-        date: &NaiveDateTime,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    pub fn serialize<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         let s = format!("{}", date.format(FORMAT));
         serializer.serialize_str(&s)
     }
 
-    pub fn deserialize<'de, D>(
-        deserializer: D,
-    ) -> Result<NaiveDateTime, D::Error>
-        where
-            D: Deserializer<'de>,
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+    where
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         NaiveDateTime::parse_from_str(&s, FORMAT).map_err(serde::de::Error::custom)
@@ -58,12 +57,9 @@ mod my_date_format_optional {
 
     const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
 
-    pub fn serialize<S>(
-        date: &Option<NaiveDateTime>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    pub fn serialize<S>(date: &Option<NaiveDateTime>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         if let Some(s) = date {
             let s = format!("{}", s.format(FORMAT));
@@ -73,17 +69,17 @@ mod my_date_format_optional {
         }
     }
 
-    pub fn deserialize<'de, D>(
-        deserializer: D,
-    ) -> Result<Option<NaiveDateTime>, D::Error>
-        where
-            D: Deserializer<'de>,
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<NaiveDateTime>, D::Error>
+    where
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         if s == "" {
             return Ok(None);
         }
-        NaiveDateTime::parse_from_str(&s, FORMAT).map(|v| Some(v)).map_err(serde::de::Error::custom)
+        NaiveDateTime::parse_from_str(&s, FORMAT)
+            .map(|v| Some(v))
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -114,16 +110,24 @@ struct MatcherModelMacro {
 const FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S";
 
 impl Serialize for MyNaiveDateTime {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let s = self.format(FORMAT_STR);
         serializer.serialize_str(&s.to_string())
     }
 }
 
 impl<'de> Deserialize<'de> for MyNaiveDateTime {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         let s = String::deserialize(deserializer)?;
-        NaiveDateTime::parse_from_str(&s, FORMAT_STR).map(|r| MyNaiveDateTime(r)).map_err(serde::de::Error::custom)
+        NaiveDateTime::parse_from_str(&s, FORMAT_STR)
+            .map(|r| MyNaiveDateTime(r))
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -150,12 +154,15 @@ impl CRUDTable for MatcherModel {
     }
 }
 
-async fn test_for_sqlx() -> anyhow::Result<()> {
+async fn test_for_sqlx() -> anyhow::Result<sqlx::pool::Pool<sqlx::MySql>> {
     let pool = sqlx::MySqlPool::connect("mysql://root:root@192.168.150.73:3306/mgateway").await?;
 
     log::info!("==================== run in low level ===================");
 
-    let ret = sqlx::query("SELECT * FROM matcher WHERE id > ? LIMIT 1").bind("123").fetch_one(&pool).await?;
+    let ret = sqlx::query("SELECT * FROM matcher WHERE id > ? LIMIT 1")
+        .bind("123")
+        .fetch_one(&pool)
+        .await?;
 
     for i in ret.columns() {
         log::info!("{}", i.name());
@@ -165,27 +172,45 @@ async fn test_for_sqlx() -> anyhow::Result<()> {
 
     log::info!("=================== response mappings ====================");
 
-    let stream_ret = sqlx::query_as::<sqlx::MySql, MatcherModelMacro>("SELECT * FROM matcher WHERE match_value LIKE ? LIMIT 10").bind("%/v1.0%").fetch(&pool);
+    let stream_ret = sqlx::query_as::<sqlx::MySql, MatcherModelMacro>(
+        "SELECT * FROM matcher WHERE match_value LIKE ? LIMIT 10",
+    )
+    .bind("%/v1.0%")
+    .fetch(&pool);
 
-    stream_ret.for_each(|v| {
-        if let Ok(mm) = v {
-            log::info!("{:#?}", mm);
-        }
-        futures::future::ready(())
-    }).await;
+    stream_ret
+        .for_each(|v| {
+            if let Ok(mm) = v {
+                log::info!("{:#?}", mm);
+            }
+            futures::future::ready(())
+        })
+        .await;
 
     log::info!("==================== use macro to check validity and mapping ===================");
 
-    let matchers = sqlx::query_as!(MatcherModelMacro, "SELECT * FROM matcher WHERE match_value LIKE ? LIMIT ?", "%/v1.0%", 10i32).fetch_all(&pool).await?;
+    let mmret = sqlx::query_as::<sqlx::MySql, MatcherModelMacro>("SELECT * FROM matcher LIMIT 10")
+        .bind("1")
+        .fetch_all(&pool)
+        .await?;
 
-    for m in matchers {
-        log::info!("{:#?}", m);
-        log::info!("{}", m.created_at.format("%Y-%m-%d %H:%M:%S"));
-        let json_out = serde_json::to_string(&m)?;
-        log::info!("{}", json_out);
-    }
+    let all_ai = sqlx::query_as::<_, entity_models::AuditInfo>("SELECT * FROM audit_info LIMIT 10")
+        .bind("1")
+        .fetch_all(&pool)
+        .await?;
 
-    Ok(())
+    log::info!("{:#?}", all_ai);
+
+    // mmret
+    //     .for_each(|v| {
+    //         if let Ok(vv) = v {
+    //             log::info!("{:#?}", vv);
+    //         }
+    //         futures::future::ready(())
+    //     })
+    //     .await;
+
+    Ok(pool)
 }
 
 fn init_log() {
@@ -205,17 +230,33 @@ fn init_log() {
         .init();
 }
 
+async fn testtt(
+    request: actix_web::HttpRequest,
+    pool: web::Data<sqlx::MySqlPool>,
+) -> actix_web::Result<impl actix_web::Responder> {
+    let i: &sqlx::MySqlPool = &pool;
+    let r = sqlx::query_as::<sqlx::MySql, entity_models::AuditInfo>(
+        "SELECT * FROM audit_info LIMIT 10",
+    )
+    .fetch_all(i)
+    .await
+    .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    return Ok(actix_web::web::Json(r));
+}
+
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
     init_log();
 
     log::info!("connecting to database");
-    test_for_sqlx().await?;
+    let pool = test_for_sqlx().await?;
 
     log::info!("==================== use rbatis for mapping ===================");
 
     let rb = Rbatis::new();
-    rb.link("mysql://root:root@192.168.150.73:3306/mgateway").await?;
+    rb.link("mysql://root:root@192.168.150.73:3306/mgateway")
+        .await?;
 
     let wrapper = rb
         .new_wrapper()
@@ -234,5 +275,15 @@ async fn main() -> anyhow::Result<()> {
     let ret = rb.fetch_list_by_wrapper::<MatcherModel>(wrapper).await?;
     log::info!("{:#?}", ret);
 
-    Ok(())
+    // let pool_arc = std::sync::Arc::new(pool);
+
+    HttpServer::new(move || {
+        actix_web::App::new()
+            .app_data(web::Data::new(pool.clone()))
+            .route("/", actix_web::web::to(testtt))
+    })
+    .bind(("127.0.0.1", 8088))?
+    .run()
+    .await
+    .map_err(|e| e.into())
 }
