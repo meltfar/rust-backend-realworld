@@ -68,6 +68,7 @@ pub mod models {
         }
     }
 
+    use rbatis::crud::CRUDTable;
     use serde::{Deserialize, Serialize};
     use sqlx::{types::chrono, FromRow};
 
@@ -123,6 +124,15 @@ pub mod models {
             .bind(addr.as_ref())
             .fetch_all(pool)
             .await;
+        }
+    }
+
+    impl CRUDTable for AuditInfo {
+        fn table_columns() -> String {
+            "id,job_id,node_address,audit_type,real_auditor,permitted,reason,candidate_auditor,created_at,updated_at,raw_body,real_auditor_name".to_string()
+        }
+        fn table_name() -> String {
+            "audit_info".to_string()
         }
     }
 }

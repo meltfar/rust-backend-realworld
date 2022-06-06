@@ -11,8 +11,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::types::chrono::NaiveDateTime;
 use sqlx::{Column, FromRow, Row};
 
+mod controllers;
 mod models;
-use models::models as entity_models;
+use controllers::job_controller::job_controller;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct MatcherModel {
@@ -189,27 +190,6 @@ async fn test_for_sqlx() -> anyhow::Result<sqlx::pool::Pool<sqlx::MySql>> {
 
     log::info!("==================== use macro to check validity and mapping ===================");
 
-    let mmret = sqlx::query_as::<sqlx::MySql, MatcherModelMacro>("SELECT * FROM matcher LIMIT 10")
-        .bind("1")
-        .fetch_all(&pool)
-        .await?;
-
-    let all_ai = sqlx::query_as::<_, entity_models::AuditInfo>("SELECT * FROM audit_info LIMIT 10")
-        .bind("1")
-        .fetch_all(&pool)
-        .await?;
-
-    log::info!("{:#?}", all_ai);
-
-    // mmret
-    //     .for_each(|v| {
-    //         if let Ok(vv) = v {
-    //             log::info!("{:#?}", vv);
-    //         }
-    //         futures::future::ready(())
-    //     })
-    //     .await;
-
     Ok(pool)
 }
 
@@ -228,19 +208,6 @@ fn init_log() {
         })
         .filter_level(log::LevelFilter::Debug)
         .init();
-}
-
-async fn testtt(
-    request: actix_web::HttpRequest,
-    pool: web::Data<sqlx::MySqlPool>,
-) -> actix_web::Result<impl actix_web::Responder> {
-    let ret = models::models::AuditInfo::get_by_id(&pool, 10)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    models::models::AuditInfo::get_list_by_node_address(&pool, "123123");
-
-    return Ok(actix_web::web::Json(ret));
 }
 
 #[actix_web::main]
@@ -273,10 +240,21 @@ async fn main() -> anyhow::Result<()> {
     let ret = rb.fetch_list_by_wrapper::<MatcherModel>(wrapper).await?;
     log::info!("{:#?}", ret);
 
+    let rb = std::sync::Arc::new(rb);
+
     HttpServer::new(move || {
+        let json_config = web::JsonConfig::default().error_handler(|err, _req| {
+            actix_web::error::InternalError::from_response(
+                err,
+                actix_web::HttpResponse::Conflict().finish(),
+            )
+            .into()
+        });
         actix_web::App::new()
+            .app_data(json_config)
             .app_data(web::Data::new(pool.clone()))
-            .route("/", actix_web::web::to(testtt))
+            .app_data(web::Data::new(rb.clone()))
+            .route("/", actix_web::web::to(job_controller::testtt))
     })
     .bind(("127.0.0.1", 8088))?
     .run()
