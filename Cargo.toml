@@ -35,3 +35,4 @@ sea-orm = { version = "*", features = [
     "debug-print",
     "macros"
 ] }
+dotenv = "*"

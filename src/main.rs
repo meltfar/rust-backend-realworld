@@ -155,8 +155,8 @@ impl CRUDTable for MatcherModel {
     }
 }
 
-async fn test_for_sqlx() -> anyhow::Result<sqlx::pool::Pool<sqlx::MySql>> {
-    let pool = sqlx::MySqlPool::connect("mysql://root:root@192.168.150.73:3306/mgateway").await?;
+async fn test_for_sqlx(database_url: &str) -> anyhow::Result<sqlx::pool::Pool<sqlx::MySql>> {
+    let pool = sqlx::MySqlPool::connect(database_url).await?;
 
     log::info!("==================== run in low level ===================");
 
@@ -193,7 +193,12 @@ async fn test_for_sqlx() -> anyhow::Result<sqlx::pool::Pool<sqlx::MySql>> {
     Ok(pool)
 }
 
-fn init_log() {
+fn init_log(env: String) {
+    let log_level = if env.to_lowercase() == "dev" {
+        log::LevelFilter::Debug
+    } else {
+        log::LevelFilter::Info
+    };
     env_logger::Builder::new()
         .format(|buf, record| {
             writeln!(
@@ -206,21 +211,25 @@ fn init_log() {
                 record.args()
             )
         })
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log_level)
         .init();
 }
 
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
-    init_log();
+    dotenv::dotenv()?;
+    let current_env = std::env::var("RUNTIME_ENV").unwrap_or("dev".to_string());
+    let database_url = std::env::var("DATABASE_URL").unwrap();
+
+    init_log(current_env);
 
     log::info!("connecting to database");
-    let pool = test_for_sqlx().await?;
+    let pool = test_for_sqlx(&database_url).await?;
 
     log::info!("==================== use rbatis for mapping ===================");
 
     let rb = Rbatis::new();
-    rb.link("mysql://root:root@192.168.150.73:3306/mgateway")
+    rb.link(&database_url)
         .await?;
 
     let wrapper = rb

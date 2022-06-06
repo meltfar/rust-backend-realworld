@@ -72,12 +72,19 @@ pub mod models {
     use serde::{Deserialize, Serialize};
     use sqlx::{types::chrono, FromRow};
 
+    #[derive(Debug, Deserialize, Serialize)]
+    pub enum JobType {
+        PeriodJob = 1,
+        DaemonJob = 2,
+    }
+
     #[derive(Debug, Deserialize, Serialize, FromRow)]
     pub struct AuditInfo {
         pub id: i64,
         pub job_id: i64,
         pub node_address: String,
-        pub audit_type: i16,
+        #[serde(rename = "type")]
+        pub audit_type: i32,
         pub real_auditor: String,
         pub permitted: String,
         pub reason: String,
@@ -125,11 +132,30 @@ pub mod models {
             .fetch_all(pool)
             .await;
         }
+
+        pub async fn get_job_info<T>(
+            pool: &sqlx::MySqlPool,
+            job_id: i64,
+            addr: T,
+            job_type: JobType,
+        ) -> Result<AuditInfo, sqlx::Error>
+        where
+            T: AsRef<str> + Sync,
+        {
+            return sqlx::query_as::<_, AuditInfo>(
+                "SELECT * FROM audit_info WHERE job_id = ? AND node_address = ? AND type = ?",
+            )
+            .bind(job_id)
+            .bind(addr.as_ref())
+            .bind(job_type as i32)
+            .fetch_one(pool)
+            .await;
+        }
     }
 
     impl CRUDTable for AuditInfo {
         fn table_columns() -> String {
-            "id,job_id,node_address,audit_type,real_auditor,permitted,reason,candidate_auditor,created_at,updated_at,raw_body,real_auditor_name".to_string()
+            "id,job_id,node_address,type,real_auditor,permitted,reason,candidate_auditor,created_at,updated_at,raw_body,real_auditor_name".to_string()
         }
         fn table_name() -> String {
             "audit_info".to_string()
