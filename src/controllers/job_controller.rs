@@ -1,37 +1,115 @@
 pub mod job_controller {
     // use crate::models::models::models;
-    use crate::models::AuditInfo;
+    use crate::{models::models::models, models::AuditInfo, rapi::cmdb_api};
     use actix_web::web;
     // use models as entity_models;
-
-    pub async fn testtt(
-        request: actix_web::HttpRequest,
-        pool: web::Data<sqlx::MySqlPool>,
-    ) -> actix_web::Result<impl actix_web::Responder> {
-        let ret = AuditInfo::get_by_id(&pool, 10)
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
-
-        return Ok(actix_web::web::Json(ret));
-    }
 
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct EditJobReq {
-        permitted: bool,
+        permitted: String,
         auditor_token: String,
         job_id: i64,
         addr: String,
         r#type: i32,
+        reject_reason: String,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct AuthorizationPayload {
+        exp: i32,
+        #[serde(rename = "Version")]
+        version: i32,
+        #[serde(rename = "UserID")]
+        user_id: i64,
+        #[serde(rename = "Mail")]
+        mail: String,
+        #[serde(rename = "Username")]
+        username: String,
+        #[serde(rename = "GroupID")]
+        group_id: i64,
+        #[serde(rename = "Root")]
+        root: bool,
     }
 
     pub async fn edit_job(
         req: web::Json<EditJobReq>,
         pool: web::Data<sqlx::MySqlPool>,
+        client: web::Data<reqwest::Client>,
+        request: actix_web::HttpRequest,
     ) -> actix_web::Result<impl actix_web::Responder> {
-        let is_auditing = req.permitted && !req.auditor_token.is_empty();
+        // TODO: jwt token verify.
+        let auth_token = request
+            .headers()
+            .get("authorization")
+            .ok_or(actix_web::error::ErrorBadRequest(
+                "no authorization header provide.",
+            ))?
+            .to_str()
+            .unwrap_or("");
 
-        let ai = AuditInfo::get_job_info(&pool, req.job_id, &req.addr, req.r#type).await.map_err(actix_web::error::ErrorInternalServerError)?;
+        let auth_payload = serde_json::from_str::<AuthorizationPayload>(
+            auth_token.split(".").collect::<Vec<&str>>().get(1).ok_or(
+                actix_web::error::ErrorBadRequest("jwt token validate failed"),
+            )?,
+        )?;
+
+        let is_auditing = !req.permitted.is_empty() && !req.auditor_token.is_empty();
+
+        let job_info = AuditInfo::get_job_info(&pool, req.job_id, &req.addr, req.r#type)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+
+        let users = cmdb_api::get_responsible_user_by_addr(&client, &req.addr)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+
+        let mut status_code = 0;
+
+        let mut id_outers = (1, true, 1);
+
+        if is_auditing {
+            if req.permitted == "no" && req.reject_reason.is_empty() {
+                return Err(actix_web::error::ErrorBadRequest(
+                    "审核需要选择是否通过，若不通过需要阐述理由，请检查填写",
+                ));
+            }
+
+            if users
+                .iter()
+                .find(|v| v.id == auth_payload.user_id)
+                .is_none()
+            {
+                return Err(actix_web::error::ErrorBadRequest(
+                    "请联系对应系统负责人进行审核",
+                ));
+            }
+
+            status_code = if req.permitted == "yes" { 1 } else { 403 };
+
+            /*
+            ids = {};
+            idOuters = {
+                GroupID: 1,
+                Root: true,
+                UserID: 1
+            }
+             ;*/
+        } else {
+            // just edit
+            if models::check_user_permissions(
+                &pool,
+                auth_payload.user_id,
+                auth_payload.group_id,
+                &req.addr,
+            )
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?
+                <= 0
+            {
+                return Err(actix_web::error::ErrorForbidden("所属组无操作权限"));
+            }
+        }
 
         return Ok("");
     }

@@ -72,12 +72,6 @@ pub mod models {
     use serde::{Deserialize, Serialize};
     use sqlx::{types::chrono, FromRow};
 
-    #[derive(Debug, Deserialize, Serialize)]
-    pub enum JobType {
-        PeriodJob = 1,
-        DaemonJob = 2,
-    }
-
     #[derive(Debug, Deserialize, Serialize, FromRow)]
     pub struct AuditInfo {
         pub id: i64,
@@ -137,7 +131,7 @@ pub mod models {
             pool: &sqlx::MySqlPool,
             job_id: i64,
             addr: T,
-            job_type: JobType,
+            job_type: i32,
         ) -> Result<AuditInfo, sqlx::Error>
         where
             T: AsRef<str> + Sync,
@@ -147,7 +141,7 @@ pub mod models {
             )
             .bind(job_id)
             .bind(addr.as_ref())
-            .bind(job_type as i32)
+            .bind(job_type)
             .fetch_one(pool)
             .await;
         }
@@ -160,5 +154,43 @@ pub mod models {
         fn table_name() -> String {
             "audit_info".to_string()
         }
+    }
+
+    // Users
+    pub async fn check_user_permissions(
+        pool: &sqlx::MySqlPool,
+        user_id: i64,
+        group_id: i64,
+        address: &str,
+    ) -> sqlx::Result<i8> {
+        if group_id == 1 {
+            return sqlx::Result::Ok(1);
+        }
+
+        if address.is_empty() {
+            return sqlx::Result::Ok(0);
+        }
+
+        let count = sqlx::query_as::<_, (i64,)>(
+            "SELECT COUNT(1) as id_num FROM users WHERE id = ? AND group_id = ?",
+        )
+        .bind(user_id)
+        .bind(group_id)
+        .fetch_one(pool)
+        .await?;
+
+        if count.0 <= 0 {
+            return sqlx::Result::Ok(0);
+        }
+
+        let count = sqlx::query_as::<_, (i64,)>(
+            "SELECT COUNT(1) as id_num FROM nodes WHERE group_id = ? AND addr = ?",
+        )
+        .bind(group_id)
+        .bind(address)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(if count.0 <= 0 { 0 } else { 1 })
     }
 }

@@ -13,6 +13,7 @@ use sqlx::{Column, FromRow, Row};
 
 mod controllers;
 mod models;
+mod rapi;
 use controllers::job_controller::job_controller;
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -263,7 +264,8 @@ async fn main() -> anyhow::Result<()> {
             .app_data(json_config)
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(rb.clone()))
-            .route("/", actix_web::web::to(job_controller::testtt))
+            .app_data(web::Data::new(reqwest::Client::new()))
+            .route("/editJob", actix_web::web::to(job_controller::edit_job))
     })
     .bind(("127.0.0.1", 8088))?
     .run()

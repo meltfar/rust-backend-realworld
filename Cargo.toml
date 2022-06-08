@@ -36,3 +36,4 @@ sea-orm = { version = "*", features = [
     "macros"
 ] }
 dotenv = "*"
+reqwest = { version = "*", features = ["json"] }
