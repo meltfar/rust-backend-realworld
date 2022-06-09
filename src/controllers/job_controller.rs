@@ -32,6 +32,21 @@ pub mod job_controller {
         root: bool,
     }
 
+    pub struct CronJobDetail {
+        pub name: String,
+        pub created_username: String,
+    }
+
+    impl cmdb_api::TaskInfoLike for CronJobDetail {
+        fn get_name(&self) -> &str {
+            return &self.name;
+        }
+
+        fn get_created_username(&self) -> &str {
+            return &self.created_username;
+        }
+    }
+
     pub async fn edit_job(
         req: web::Json<EditJobReq>,
         pool: web::Data<sqlx::MySqlPool>,
@@ -110,6 +125,16 @@ pub mod job_controller {
                 return Err(actix_web::error::ErrorForbidden("所属组无操作权限"));
             }
         }
+
+        cmdb_api::send_mail(
+            &client,
+            "",
+            "",
+            &CronJobDetail {
+                name: "".to_owned(),
+                created_username: "".to_string(),
+            },
+        ).await.map_err(actix_web::error::ErrorInternalServerError)?;
 
         return Ok("");
     }
