@@ -4,6 +4,22 @@ pub mod job_controller {
     use actix_web::web;
     // use models as entity_models;
 
+    use crate::rpc::cmdb::cmdb;
+    use crate::utils::MyError;
+    use actix_web::Responder;
+    // use models as entity_models;
+
+    type Response<T> = actix_web::Result<T, MyError>;
+
+    pub async fn testtt(
+        request: actix_web::HttpRequest,
+        pool: web::Data<sqlx::MySqlPool>,
+    ) -> Response<impl Responder> {
+        let ret = AuditInfo::get_by_id(&pool, 10).await?;
+
+        return Ok(actix_web::web::Json(ret));
+    }
+
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct EditJobReq {
@@ -52,32 +68,28 @@ pub mod job_controller {
         pool: web::Data<sqlx::MySqlPool>,
         client: web::Data<reqwest::Client>,
         request: actix_web::HttpRequest,
-    ) -> actix_web::Result<impl actix_web::Responder> {
+    ) -> Response<impl actix_web::Responder> {
         // TODO: jwt token verify.
         let auth_token = request
             .headers()
             .get("authorization")
-            .ok_or(actix_web::error::ErrorBadRequest(
-                "no authorization header provide.",
-            ))?
+            .ok_or(format!("no authorization header provide."))?
             .to_str()
             .unwrap_or("");
 
         let auth_payload = serde_json::from_str::<AuthorizationPayload>(
-            auth_token.split(".").collect::<Vec<&str>>().get(1).ok_or(
-                actix_web::error::ErrorBadRequest("jwt token validate failed"),
-            )?,
+            auth_token
+                .split(".")
+                .collect::<Vec<&str>>()
+                .get(1)
+                .ok_or("jwt token validate failed")?,
         )?;
 
         let is_auditing = !req.permitted.is_empty() && !req.auditor_token.is_empty();
 
-        let job_info = AuditInfo::get_job_info(&pool, req.job_id, &req.addr, req.r#type)
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+        let job_info = AuditInfo::get_job_info(&pool, req.job_id, &req.addr, req.r#type).await?;
 
-        let users = cmdb_api::get_responsible_user_by_addr(&client, &req.addr)
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+        let users = cmdb_api::get_responsible_user_by_addr(&client, &req.addr).await?;
 
         let mut status_code = 0;
 
@@ -85,8 +97,9 @@ pub mod job_controller {
 
         if is_auditing {
             if req.permitted == "no" && req.reject_reason.is_empty() {
-                return Err(actix_web::error::ErrorBadRequest(
-                    "审核需要选择是否通过，若不通过需要阐述理由，请检查填写",
+                return Err(MyError::new(
+                    403,
+                    format!("审核需要选择是否通过，若不通过需要阐述理由，请检查填写"),
                 ));
             }
 
@@ -95,9 +108,7 @@ pub mod job_controller {
                 .find(|v| v.id == auth_payload.user_id)
                 .is_none()
             {
-                return Err(actix_web::error::ErrorBadRequest(
-                    "请联系对应系统负责人进行审核",
-                ));
+                return Err(MyError::new(403, format!("请联系对应系统负责人进行审核")));
             }
 
             status_code = if req.permitted == "yes" { 1 } else { 403 };
@@ -118,11 +129,11 @@ pub mod job_controller {
                 auth_payload.group_id,
                 &req.addr,
             )
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?
+            .await?
                 <= 0
             {
-                return Err(actix_web::error::ErrorForbidden("所属组无操作权限"));
+                // return Err(actix_web::error::ErrorForbidden("所属组无操作权限"));
+                return MyError::new_result(403, "所属组无操作权限");
             }
         }
 
@@ -134,7 +145,8 @@ pub mod job_controller {
                 name: "".to_owned(),
                 created_username: "".to_string(),
             },
-        ).await.map_err(actix_web::error::ErrorInternalServerError)?;
+        )
+        .await?;
 
         return Ok("");
     }

@@ -14,6 +14,8 @@ use sqlx::{Column, FromRow, Row};
 mod controllers;
 mod models;
 mod rapi;
+mod rpc;
+mod utils;
 use controllers::job_controller::job_controller;
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -230,8 +232,7 @@ async fn main() -> anyhow::Result<()> {
     log::info!("==================== use rbatis for mapping ===================");
 
     let rb = Rbatis::new();
-    rb.link(&database_url)
-        .await?;
+    rb.link(&database_url).await?;
 
     let wrapper = rb
         .new_wrapper()

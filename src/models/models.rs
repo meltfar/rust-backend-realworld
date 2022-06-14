@@ -117,7 +117,7 @@ pub mod models {
             addr: T,
         ) -> Result<Vec<AuditInfo>, sqlx::Error>
         where
-            T: AsRef<str> + Send + Sync,
+            T: AsRef<str> + Sync,
         {
             return sqlx::query_as::<_, AuditInfo>(
                 "SELECT * FROM audit_info WHERE node_address = ?",

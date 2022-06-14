@@ -37,3 +37,4 @@ sea-orm = { version = "*", features = [
 ] }
 dotenv = "*"
 reqwest = { version = "*", features = ["json"] }
+thiserror = "*"
