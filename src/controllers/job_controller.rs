@@ -6,19 +6,9 @@ pub mod job_controller {
 
     use crate::rpc::cmdb::cmdb;
     use crate::utils::MyError;
-    use actix_web::Responder;
     // use models as entity_models;
 
     type Response<T> = actix_web::Result<T, MyError>;
-
-    pub async fn testtt(
-        request: actix_web::HttpRequest,
-        pool: web::Data<sqlx::MySqlPool>,
-    ) -> Response<impl Responder> {
-        let ret = AuditInfo::get_by_id(&pool, 10).await?;
-
-        return Ok(actix_web::web::Json(ret));
-    }
 
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -90,6 +80,8 @@ pub mod job_controller {
         let job_info = AuditInfo::get_job_info(&pool, req.job_id, &req.addr, req.r#type).await?;
 
         let users = cmdb_api::get_responsible_user_by_addr(&client, &req.addr).await?;
+
+        let retttt = cmdb::query_user_cmdb("123").await?;
 
         let mut status_code = 0;
 
