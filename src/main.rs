@@ -1,22 +1,23 @@
 use std::io::Write;
 use std::ops::{Deref, DerefMut};
 
-use actix_web::{web, HttpServer};
+use actix_web::{HttpServer, web};
 use futures::StreamExt;
 use rbatis::{
-    crud::{CRUDTable, CRUD},
+    crud::{CRUD, CRUDTable},
     rbatis::Rbatis,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sqlx::types::chrono::NaiveDateTime;
 use sqlx::{Column, FromRow, Row};
+use sqlx::types::chrono::NaiveDateTime;
+
+use controllers::job_controller::job_controller;
 
 mod controllers;
 mod models;
 mod rapi;
 mod rpc;
 mod utils;
-use controllers::job_controller::job_controller;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct MatcherModel {
@@ -39,16 +40,16 @@ mod my_date_format {
     const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
 
     pub fn serialize<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         let s = format!("{}", date.format(FORMAT));
         serializer.serialize_str(&s)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         NaiveDateTime::parse_from_str(&s, FORMAT).map_err(serde::de::Error::custom)
@@ -62,8 +63,8 @@ mod my_date_format_optional {
     const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
 
     pub fn serialize<S>(date: &Option<NaiveDateTime>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         if let Some(s) = date {
             let s = format!("{}", s.format(FORMAT));
@@ -74,8 +75,8 @@ mod my_date_format_optional {
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<NaiveDateTime>, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         if s == "" {
@@ -115,8 +116,8 @@ const FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S";
 
 impl Serialize for MyNaiveDateTime {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         let s = self.format(FORMAT_STR);
         serializer.serialize_str(&s.to_string())
@@ -125,8 +126,8 @@ impl Serialize for MyNaiveDateTime {
 
 impl<'de> Deserialize<'de> for MyNaiveDateTime {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         NaiveDateTime::parse_from_str(&s, FORMAT_STR)
@@ -179,8 +180,8 @@ async fn test_for_sqlx(database_url: &str) -> anyhow::Result<sqlx::pool::Pool<sq
     let stream_ret = sqlx::query_as::<sqlx::MySql, MatcherModelMacro>(
         "SELECT * FROM matcher WHERE match_value LIKE ? LIMIT 10",
     )
-    .bind("%/v1.0%")
-    .fetch(&pool);
+        .bind("%/v1.0%")
+        .fetch(&pool);
 
     stream_ret
         .for_each(|v| {
@@ -193,6 +194,8 @@ async fn test_for_sqlx(database_url: &str) -> anyhow::Result<sqlx::pool::Pool<sq
 
     log::info!("==================== use macro to check validity and mapping ===================");
 
+    let ret = sqlx::query_as!(MatcherModelMacro, "SELECT * FROM matcher WHERE id > ?", 32i32).fetch_all(&pool).await?;
+    log::info!("{:#?}", ret);
     Ok(pool)
 }
 
@@ -257,19 +260,19 @@ async fn main() -> anyhow::Result<()> {
         let json_config = web::JsonConfig::default().error_handler(|err, _req| {
             actix_web::error::InternalError::from_response(
                 err,
-                actix_web::HttpResponse::Conflict().finish(),
-            )
-            .into()
+                actix_web::HttpResponse::InternalServerError().finish(),
+            ).into()
         });
         actix_web::App::new()
             .app_data(json_config)
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(rb.clone()))
             .app_data(web::Data::new(reqwest::Client::new()))
-            .route("/editJob", actix_web::web::to(job_controller::edit_job))
+            .route("/editJob", web::to(job_controller::edit_job))
+            .route("/err", web::get().to(job_controller::error_return))
     })
-    .bind(("127.0.0.1", 8088))?
-    .run()
-    .await
-    .map_err(|e| e.into())
+        .bind(("127.0.0.1", 8088))?
+        .run()
+        .await
+        .map_err(|e| e.into())
 }

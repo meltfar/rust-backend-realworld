@@ -148,11 +148,11 @@ pub mod models {
     }
 
     impl CRUDTable for AuditInfo {
-        fn table_columns() -> String {
-            "id,job_id,node_address,type,real_auditor,permitted,reason,candidate_auditor,created_at,updated_at,raw_body,real_auditor_name".to_string()
-        }
         fn table_name() -> String {
             "audit_info".to_string()
+        }
+        fn table_columns() -> String {
+            "id,job_id,node_address,type,real_auditor,permitted,reason,candidate_auditor,created_at,updated_at,raw_body,real_auditor_name".to_string()
         }
     }
 

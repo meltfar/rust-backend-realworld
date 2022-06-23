@@ -1,6 +1,5 @@
 pub mod cmdb_api {
-
-    #[derive(serde::Deserialize)]
+    #[derive(serde::Deserialize, Debug)]
     pub struct AssociateUser {
         pub id: i64,
         pub name: String,
@@ -12,18 +11,22 @@ pub mod cmdb_api {
 
     pub async fn get_responsible_user_by_addr(
         client: &reqwest::Client,
-        ip_addr: &str,
+        group_id: u32,
     ) -> Result<Vec<AssociateUser>, reqwest::Error> {
+        #[derive(serde::Deserialize)]
+        struct TmpRet {
+            result: Vec<AssociateUser>,
+        }
         client
             .get(format!(
                 "{}/aiops-api/user/queryUserByHost.json",
                 CMDB_SERVER_ADDR
             ))
-            .query(&[("ip", ip_addr)])
+            .query(&[("groupId", group_id)])
             .send()
             .await?
-            .json::<Vec<AssociateUser>>()
-            .await
+            .json::<TmpRet>()
+            .await.map(|f| f.result)
     }
 
     pub trait TaskInfoLike {
@@ -36,9 +39,9 @@ pub mod cmdb_api {
         client: &reqwest::Client,
         callback_url: &str,
         dest_server_addr: &str,
-        task_info: &impl TaskInfoLike
+        task_info: &impl TaskInfoLike,
     ) -> Result<(), reqwest::Error> {
-        task_info.get_name();
+        println!("{}", task_info.get_name());
         Ok(())
     }
 }

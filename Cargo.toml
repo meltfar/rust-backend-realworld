@@ -29,12 +29,7 @@ sqlx = { version = "*", default-features = false, features = [
     "bigdecimal"
 ] }
 futures = "*"
-sea-orm = { version = "*", features = [
-    "sqlx-mysql",
-    "runtime-actix-native-tls",
-    "debug-print",
-    "macros"
-] }
 dotenv = "*"
 reqwest = { version = "*", features = ["json"] }
 thiserror = "*"
+jsonwebtoken = {version = "*", default-features = false }

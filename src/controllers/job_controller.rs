@@ -1,11 +1,14 @@
 pub mod job_controller {
-    // use crate::models::models::models;
-    use crate::{models::models::models, models::AuditInfo, rapi::cmdb_api};
     use actix_web::web;
-    // use models as entity_models;
 
+    // use crate::models::models::models;
+    use crate::{models::AuditInfo, models::models::models, rapi::cmdb_api};
+    use crate::error;
     use crate::rpc::cmdb::cmdb;
     use crate::utils::MyError;
+
+// use models as entity_models;
+
     // use models as entity_models;
 
     type Response<T> = actix_web::Result<T, MyError>;
@@ -19,9 +22,11 @@ pub mod job_controller {
         addr: String,
         r#type: i32,
         reject_reason: String,
+        group_id: u32
     }
 
     #[derive(serde::Deserialize)]
+    #[allow(unused)]
     struct AuthorizationPayload {
         exp: i32,
         #[serde(rename = "Version")]
@@ -53,6 +58,14 @@ pub mod job_controller {
         }
     }
 
+    pub async fn error_return() -> Response<impl actix_web::Responder> {
+        // std::fs::File::open("dfsdffd")?;
+        // Ok("123123")
+        let m = MyError::new(404u16, String::from("wochao"));
+        let ret: Response<String> = Err(m);
+        return ret;
+    }
+
     pub async fn edit_job(
         req: web::Json<EditJobReq>,
         pool: web::Data<sqlx::MySqlPool>,
@@ -63,7 +76,7 @@ pub mod job_controller {
         let auth_token = request
             .headers()
             .get("authorization")
-            .ok_or(format!("no authorization header provide."))?
+            .ok_or(error!("no authorization header provide."))?
             .to_str()
             .unwrap_or("");
 
@@ -72,7 +85,7 @@ pub mod job_controller {
                 .split(".")
                 .collect::<Vec<&str>>()
                 .get(1)
-                .ok_or("jwt token validate failed")?,
+                .ok_or(error!("jwt token validate failed"))?,
         )?;
 
         let is_auditing = !req.permitted.is_empty() && !req.auditor_token.is_empty();
@@ -121,7 +134,7 @@ pub mod job_controller {
                 auth_payload.group_id,
                 &req.addr,
             )
-            .await?
+                .await?
                 <= 0
             {
                 // return Err(actix_web::error::ErrorForbidden("所属组无操作权限"));
@@ -138,7 +151,7 @@ pub mod job_controller {
                 created_username: "".to_string(),
             },
         )
-        .await?;
+            .await?;
 
         return Ok("");
     }
