@@ -194,8 +194,8 @@ async fn test_for_sqlx(database_url: &str) -> anyhow::Result<sqlx::pool::Pool<sq
 
     log::info!("==================== use macro to check validity and mapping ===================");
 
-    let ret = sqlx::query_as!(MatcherModelMacro, "SELECT * FROM matcher WHERE id > ?", 32i32).fetch_all(&pool).await?;
-    log::info!("{:#?}", ret);
+    // let ret = sqlx::query_as!(MatcherModelMacro, "SELECT * FROM matcher WHERE id > ?", 32i32).fetch_all(&pool).await?;
+    // log::info!("{:#?}", ret);
     Ok(pool)
 }
 

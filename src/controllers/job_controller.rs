@@ -2,12 +2,12 @@ pub mod job_controller {
     use actix_web::web;
 
     // use crate::models::models::models;
-    use crate::{models::AuditInfo, models::models::models, rapi::cmdb_api};
     use crate::error;
     use crate::rpc::cmdb::cmdb;
     use crate::utils::MyError;
+    use crate::{models::models::models, models::AuditInfo, rapi::cmdb_api};
 
-// use models as entity_models;
+    // use models as entity_models;
 
     // use models as entity_models;
 
@@ -22,7 +22,7 @@ pub mod job_controller {
         addr: String,
         r#type: i32,
         reject_reason: String,
-        group_id: u32
+        group_id: u32,
     }
 
     #[derive(serde::Deserialize)]
@@ -92,7 +92,7 @@ pub mod job_controller {
 
         let job_info = AuditInfo::get_job_info(&pool, req.job_id, &req.addr, req.r#type).await?;
 
-        let users = cmdb_api::get_responsible_user_by_addr(&client, &req.addr).await?;
+        let users = cmdb_api::get_responsible_user_by_addr(&client, req.group_id).await?;
 
         let retttt = cmdb::query_user_cmdb("123").await?;
 
@@ -134,7 +134,7 @@ pub mod job_controller {
                 auth_payload.group_id,
                 &req.addr,
             )
-                .await?
+            .await?
                 <= 0
             {
                 // return Err(actix_web::error::ErrorForbidden("所属组无操作权限"));
@@ -151,7 +151,7 @@ pub mod job_controller {
                 created_username: "".to_string(),
             },
         )
-            .await?;
+        .await?;
 
         return Ok("");
     }
