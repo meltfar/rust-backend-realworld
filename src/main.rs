@@ -16,7 +16,6 @@ use controllers::job_controller::job_controller;
 mod controllers;
 mod models;
 mod rapi;
-mod rpc;
 mod utils;
 
 #[derive(Deserialize, Serialize, Debug)]

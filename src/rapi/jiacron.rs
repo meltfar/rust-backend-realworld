@@ -3,19 +3,18 @@ use crate::{models::JobDetail, utils::MyError};
 use super::call_api;
 
 #[derive(serde::Serialize)]
-pub struct EditJobRequest {
-    user_id: u32,
-    group_id: u32,
-    root: bool,
-    job: JobDetail<u8>,
+pub struct EditJobRequest<'a> {
+    pub user_id: u32,
+    pub group_id: u32,
+    pub root: bool,
+    pub job: &'a JobDetail,
 }
 
 pub async fn edit_job_call(
     client: &reqwest::Client,
-    params: EditJobRequest,
+    params: EditJobRequest<'_>,
     addr: &str,
-) -> Result<(), MyError> {
-    call_api::<_, _, JobDetail<u8>>(client, addr, "CrontabJob.Edit", params).await?;
-
-    Ok(())
+) -> Result<JobDetail, MyError> {
+    call_api::<_, _, JobDetail>(client, addr, "CrontabJob.Edit", params)
+        .await
 }

@@ -127,9 +127,13 @@ pub mod models {
             .await;
         }
 
+        pub async fn create_job_info(pool: &sqlx::MySqlPool, job_id: u32, address: &str, job_type: i32, auditor: &str, group_id: u32) -> Result<(), sqlx::Error> {   
+            sqlx::query_as::<_, (i32, )>("INSERT INTO audit_info (job_id, node_address, type, candidate_auditor, audit_group_id) VALUES (?, ?, ?, ?, ?)").bind(job_id).bind(address).bind(job_type).bind(auditor).bind(group_id).fetch_one(pool).await.map(|_|())
+        }
+
         pub async fn get_job_info<T>(
             pool: &sqlx::MySqlPool,
-            job_id: i64,
+            job_id: u32,
             addr: T,
             job_type: i32,
         ) -> Result<AuditInfo, sqlx::Error>
