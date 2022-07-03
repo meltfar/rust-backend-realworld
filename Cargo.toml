@@ -33,3 +33,4 @@ dotenv = "*"
 reqwest = { version = "*", features = ["json"] }
 thiserror = "*"
 jsonwebtoken = {version = "*", default-features = false }
+urlencoding = "*"

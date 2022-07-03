@@ -13,9 +13,15 @@ pub mod job_controller {
 
     // use models as entity_models;
 
+    #[derive(serde::Serialize)]
+    struct CommonResponse<'a> {
+        code: i32,
+        data: &'a str,
+    }
+
     type Response<T> = actix_web::Result<T, MyError>;
 
-    #[derive(serde::Deserialize)]
+    #[derive(serde::Deserialize, serde::Serialize)]
     #[serde(rename_all = "camelCase")]
     pub struct EditJobReq {
         permitted: String,
@@ -172,7 +178,11 @@ pub mod job_controller {
                 auth_payload.root,
                 auth_payload.user_id,
             );
-            ids = Some((auth_payload.group_id, auth_payload.user_id, auth_payload.username))
+            ids = Some((
+                auth_payload.group_id,
+                auth_payload.user_id,
+                auth_payload.username,
+            ))
         }
 
         // TODO: check job type here, then call apis respectively.
@@ -220,35 +230,59 @@ pub mod job_controller {
 
         // when run to here, the result of remote api call was success.
         if !is_auditing && job_info.is_err() {
-            let users_str = users.iter().map(|f| f.phone.clone()).reduce(|n, o|{
-                if o.len() <=0 {
-                    n
-                } else{
-                    format!("{}-{}", o, n)
-                }
-            }).ok_or(MyError::from_string("未能保存审核用户"))?;
-            AuditInfo::create_job_info(&pool, created_job_id, &req.addr, req.r#type, &users_str, req.group_id).await?;
+            let users_str = users
+                .iter()
+                .map(|f| f.phone.clone())
+                .reduce(|n, o| {
+                    if o.len() <= 0 {
+                        n
+                    } else {
+                        format!("{}-{}", o, n)
+                    }
+                })
+                .ok_or(MyError::from_string("未能保存审核用户"))?;
+            AuditInfo::create_job_info(
+                &pool,
+                created_job_id,
+                &req.addr,
+                req.r#type,
+                &users_str,
+                req.group_id,
+            )
+            .await?;
+
+            let cc = client.clone();
+            actix_web::rt::spawn(async move {
+                let cjd = CronJobDetail {
+                    name: job_name.clone(),
+                    created_username: created_username.clone(),
+                };
+                _ = cmdb_api::send_mail(cc, "", "", &cjd).await;
+                cmdb_api::send_sms(client, "", cjd)
+            });
+        } else if is_auditing && job_info.is_ok() {
+            let ji = job_info.unwrap();
+            if ji.permitted == "yes" {
+                return Err(MyError::from_string("已经通过的无需再次审核"));
+            }
+            // update job info
+            AuditInfo::update_job_info(
+                &pool,
+                ji.job_id,
+                &ji.node_address,
+                1, // TODO: job_type
+                "",
+                "0",
+                &req.permitted,
+                &req.reject_reason,
+                // serde_json::to_string(&req)?.as_str(),
+            )
+            .await?;
         }
 
-        let cc = client.clone();
-        actix_web::rt::spawn(async move {
-            let cjd = CronJobDetail {
-                name: "".to_owned(),
-                created_username: "".to_string(),
-            };
-            cmdb_api::send_mail(cc, "", "", cjd)
-        });
-        // cmdb_api::send_mail(
-        //     &client,
-        //     "",
-        //     "",
-        //     &CronJobDetail {
-        //         name: "".to_owned(),
-        //         created_username: "".to_string(),
-        //     },
-        // )
-        // .await?;
-
-        return Ok("");
+        return Ok(web::Json(CommonResponse {
+            code: 200,
+            data: "over",
+        }));
     }
 }

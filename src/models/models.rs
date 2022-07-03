@@ -74,8 +74,8 @@ pub mod models {
 
     #[derive(Debug, Deserialize, Serialize, FromRow)]
     pub struct AuditInfo {
-        pub id: i64,
-        pub job_id: i64,
+        pub id: u32,
+        pub job_id: u32,
         pub node_address: String,
         #[serde(rename = "type")]
         pub audit_type: i32,
@@ -127,7 +127,14 @@ pub mod models {
             .await;
         }
 
-        pub async fn create_job_info(pool: &sqlx::MySqlPool, job_id: u32, address: &str, job_type: i32, auditor: &str, group_id: u32) -> Result<(), sqlx::Error> {   
+        pub async fn create_job_info(
+            pool: &sqlx::MySqlPool,
+            job_id: u32,
+            address: &str,
+            job_type: i32,
+            auditor: &str,
+            group_id: u32,
+        ) -> Result<(), sqlx::Error> {
             sqlx::query_as::<_, (i32, )>("INSERT INTO audit_info (job_id, node_address, type, candidate_auditor, audit_group_id) VALUES (?, ?, ?, ?, ?)").bind(job_id).bind(address).bind(job_type).bind(auditor).bind(group_id).fetch_one(pool).await.map(|_|())
         }
 
@@ -148,6 +155,19 @@ pub mod models {
             .bind(job_type)
             .fetch_one(pool)
             .await;
+        }
+
+        pub async fn update_job_info(
+            pool: &sqlx::MySqlPool,
+            job_id: u32,
+            address: &str,
+            job_type: i32,
+            auditor: &str,
+            auditor_name: &str,
+            permitted: &str,
+            reason: &str,
+        ) -> Result<(), sqlx::Error> {
+            sqlx::query_as::<_, (i32, )>("UPDATE audit_info SET real_auditor = ?, permitted = ?, reason = ?, real_auditor_name = ? WHERE job_id = ? AND node_address = ? AND type = ?").bind(auditor).bind(permitted).bind(reason).bind(auditor_name).bind(job_id).bind(address).bind(job_type).fetch_all(pool).await.map(|_| ())
         }
     }
 

@@ -1,6 +1,4 @@
 pub mod cmdb_api {
-    use std::sync::Arc;
-
     #[derive(serde::Deserialize, Debug)]
     pub struct AssociateUser {
         pub id: u32,
@@ -56,9 +54,19 @@ pub mod cmdb_api {
         client: actix_web::web::Data<reqwest::Client>,
         callback_url: &str,
         dest_server_addr: &str,
-        task_info: impl TaskInfoLike,
+        task_info: &impl TaskInfoLike,
     ) -> Result<(), reqwest::Error> {
         println!("{}", task_info.get_name());
+        Ok(())
+    }
+
+    pub async fn send_sms(
+        client: actix_web::web::Data<reqwest::Client>,
+        dest_server_addr: &str,
+        task_info: impl TaskInfoLike,
+    ) -> Result<(), reqwest::Error> {
+        println!("{}", "1");
+
         Ok(())
     }
 }
