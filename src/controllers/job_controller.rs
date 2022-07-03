@@ -231,8 +231,8 @@ pub mod job_controller {
         // when run to here, the result of remote api call was success.
         if !is_auditing && job_info.is_err() {
             let users_str = users
-                .iter()
-                .map(|f| f.phone.clone())
+                .into_iter()
+                .map(|f|f.phone)
                 .reduce(|n, o| {
                     if o.len() <= 0 {
                         n
