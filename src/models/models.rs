@@ -68,7 +68,6 @@ pub mod models {
         }
     }
 
-    use rbatis::crud::CRUDTable;
     use serde::{Deserialize, Serialize};
     use sqlx::{types::chrono, FromRow};
 
@@ -99,16 +98,6 @@ pub mod models {
             return sqlx::query_as::<_, AuditInfo>("SELECT * FROM audit_info WHERE id = ? LIMIT 1")
                 .bind(id)
                 .fetch_one(pool)
-                .await;
-        }
-
-        pub async fn get_list_by_job_id(
-            pool: &sqlx::Pool<sqlx::MySql>,
-            job_id: i64,
-        ) -> Result<Vec<AuditInfo>, sqlx::Error> {
-            return sqlx::query_as::<_, AuditInfo>("SELECT * FROM audit_info WHERE job_id = ?")
-                .bind(job_id)
-                .fetch_all(pool)
                 .await;
         }
 
@@ -168,15 +157,6 @@ pub mod models {
             reason: &str,
         ) -> Result<(), sqlx::Error> {
             sqlx::query_as::<_, (i32, )>("UPDATE audit_info SET real_auditor = ?, permitted = ?, reason = ?, real_auditor_name = ? WHERE job_id = ? AND node_address = ? AND type = ?").bind(auditor).bind(permitted).bind(reason).bind(auditor_name).bind(job_id).bind(address).bind(job_type).fetch_all(pool).await.map(|_| ())
-        }
-    }
-
-    impl CRUDTable for AuditInfo {
-        fn table_name() -> String {
-            "audit_info".to_string()
-        }
-        fn table_columns() -> String {
-            "id,job_id,node_address,type,real_auditor,permitted,reason,candidate_auditor,created_at,updated_at,raw_body,real_auditor_name".to_string()
         }
     }
 
