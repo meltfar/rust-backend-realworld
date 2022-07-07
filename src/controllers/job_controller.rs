@@ -89,6 +89,11 @@ pub mod job_controller {
         return ret;
     }
 
+    fn generate_callback_url(input: &str) -> String {
+        let callback = urlencoding::encode(input);
+        return callback.into_owned();
+    }
+
     pub async fn edit_job(
         req: web::Json<EditJobReq>,
         pool: web::Data<sqlx::MySqlPool>,
@@ -166,7 +171,7 @@ pub mod job_controller {
                 auth_payload.group_id.into(),
                 &req.addr,
             )
-            .await?
+                .await?
                 <= 0
             {
                 // return Err(actix_web::error::ErrorForbidden("所属组无操作权限"));
@@ -222,7 +227,7 @@ pub mod job_controller {
                 },
                 &req.addr,
             )
-            .await?;
+                .await?;
             created_username = ret.created_username;
             job_name = ret.name;
             created_job_id = ret.id;
@@ -232,7 +237,7 @@ pub mod job_controller {
         if !is_auditing && job_info.is_err() {
             let users_str = users
                 .into_iter()
-                .map(|f|f.phone)
+                .map(|f| f.phone)
                 .reduce(|n, o| {
                     if o.len() <= 0 {
                         n
@@ -249,15 +254,16 @@ pub mod job_controller {
                 &users_str,
                 req.group_id,
             )
-            .await?;
+                .await?;
 
             let cc = client.clone();
+            let ur = generate_callback_url("");
             actix_web::rt::spawn(async move {
                 let cjd = CronJobDetail {
                     name: job_name.clone(),
                     created_username: created_username.clone(),
                 };
-                _ = cmdb_api::send_mail(cc, "", "", &cjd).await;
+                cmdb_api::send_mail(cc, ur.as_str(), "", &cjd);
                 cmdb_api::send_sms(client, "", cjd)
             });
         } else if is_auditing && job_info.is_ok() {
@@ -277,7 +283,7 @@ pub mod job_controller {
                 &req.reject_reason,
                 // serde_json::to_string(&req)?.as_str(),
             )
-            .await?;
+                .await?;
         }
 
         return Ok(web::Json(CommonResponse {

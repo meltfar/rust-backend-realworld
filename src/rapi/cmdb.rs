@@ -56,7 +56,7 @@ pub mod cmdb_api {
         dest_server_addr: &str,
         task_info: &impl TaskInfoLike,
     ) -> Result<(), reqwest::Error> {
-        println!("{}", task_info.get_name());
+        println!("{} - {}", task_info.get_name(), callback_url);
         Ok(())
     }
 
