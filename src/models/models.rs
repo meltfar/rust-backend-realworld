@@ -1,17 +1,3 @@
-/*
-`id` int NOT NULL AUTO_INCREMENT,
-`job_id` int NOT NULL DEFAULT '0',
-`node_address` varchar(128) COLLATE utf8mb4_bin NOT NULL DEFAULT '',
-`type` int NOT NULL DEFAULT '1',
-`real_auditor` varchar(128) COLLATE utf8mb4_bin NOT NULL DEFAULT '',
-`permitted` varchar(9) COLLATE utf8mb4_bin NOT NULL DEFAULT '',
-`reason` text COLLATE utf8mb4_bin,
-`candidate_auditor` varchar(256) COLLATE utf8mb4_bin NOT NULL DEFAULT '',
-`created_at` datetime(3) DEFAULT CURRENT_TIMESTAMP(3),
-`updated_at` datetime(3) DEFAULT CURRENT_TIMESTAMP(3),
-`raw_body` text COLLATE utf8mb4_bin,
-`real_auditor_name` varchar(128) COLLATE utf8mb4_bin NOT NULL DEFAULT '',
-*/
 pub mod models {
     pub mod my_date_format {
         use chrono::NaiveDateTime;
@@ -168,11 +154,11 @@ pub mod models {
         address: &str,
     ) -> sqlx::Result<i8> {
         if group_id == 1 {
-            return sqlx::Result::Ok(1);
+            return Ok(1);
         }
 
         if address.is_empty() {
-            return sqlx::Result::Ok(0);
+            return Ok(0);
         }
 
         let count = sqlx::query_as::<_, (i64,)>(
@@ -184,7 +170,7 @@ pub mod models {
         .await?;
 
         if count.0 <= 0 {
-            return sqlx::Result::Ok(0);
+            return Ok(0);
         }
 
         let count = sqlx::query_as::<_, (i64,)>(

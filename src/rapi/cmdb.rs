@@ -10,8 +10,8 @@ pub mod cmdb_api {
     const CMDB_SERVER_ADDR: &'static str = "http://10.25.224.61:8080";
 
     pub(crate) fn get_prefix<'a, T>(url: T) -> &'a str
-    where
-        T: AsRef<str> + 'a,
+        where
+            T: AsRef<str> + 'a,
     {
         if url.as_ref().starts_with("app") {
             "https"
@@ -56,7 +56,7 @@ pub mod cmdb_api {
         dest_server_addr: &str,
         task_info: &impl TaskInfoLike,
     ) -> Result<(), reqwest::Error> {
-        println!("{} - {}", task_info.get_name(), callback_url);
+        println!("mail: {} - {}", task_info.get_name(), callback_url);
         Ok(())
     }
 
@@ -65,8 +65,7 @@ pub mod cmdb_api {
         dest_server_addr: &str,
         task_info: impl TaskInfoLike,
     ) -> Result<(), reqwest::Error> {
-        println!("{}", "1");
-
+        println!("sms: {} - {}", dest_server_addr, task_info.get_name());
         Ok(())
     }
 }

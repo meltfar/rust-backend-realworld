@@ -244,7 +244,7 @@ async fn main() -> anyhow::Result<()> {
             .route("/editJob", web::to(job_controller::edit_job))
             .route("/err", web::get().to(job_controller::error_return))
     })
-    .bind(("127.0.0.1", 8088))?
+    .bind(("127.0.0.1", 8086))?
     .run()
     .await
     .map_err(|e| e.into())
