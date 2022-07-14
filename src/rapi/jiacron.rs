@@ -15,6 +15,5 @@ pub async fn edit_job_call(
     params: EditJobRequest<'_>,
     addr: &str,
 ) -> Result<JobDetail, MyError> {
-    call_api::<_, _, JobDetail>(client, addr, "CrontabJob.Edit", params)
-        .await
+    call_api::<_, _, EditJobRequest<'_>>(client, addr, "CrontabJob.Edit", params).await
 }

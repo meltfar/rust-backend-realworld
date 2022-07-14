@@ -60,10 +60,10 @@ pub mod job_controller {
     }
 
     #[derive(serde::Deserialize)]
-    struct CMDBAuditUserInfo<'a> {
+    struct CMDBAuditUserInfo {
         id: u32,
-        phone: &'a str,
-        name: &'a str,
+        phone: String,
+        name: String,
     }
 
     pub struct CronJobDetail {
@@ -89,12 +89,12 @@ pub mod job_controller {
     }
 
     fn generate_callback_url(addr: &str, id: u32, r#type: i32) -> String {
-        let input = format!("http://{}/#/edit/{}?id={}&addr={}&tabKey={}&mode=audit&token=", "app.c.vip.migu.cn", if r#type == 1 { "crontab_job" } else { "daemon_job" }, id, addr, 1, ).as_str();
-        let callback = urlencoding::encode(input);
+        let input = format!("http://{}/#/edit/{}?id={}&addr={}&tabKey={}&mode=audit&token=", "app.c.vip.migu.cn", if r#type == 1 { "crontab_job" } else { "daemon_job" }, id, addr, 1, );
+        let callback = urlencoding::encode(&input);
         return callback.into_owned();
     }
 
-    fn get_auditor_info_by_header(auditor_token: &str) -> Result<CMDBAuditUserInfo, MyError> {
+    fn get_auditor_info_by_header<'a>(auditor_token: &'a str) -> Result<CMDBAuditUserInfo, MyError> {
         let auditor_token = auditor_token
             .split(".")
             .skip(1)
@@ -102,11 +102,11 @@ pub mod job_controller {
             .ok_or(MyError::from_string("auditor token not valid"))?;
 
         let decoded_token = base64::decode(auditor_token)?;
-        let mut decoded_token_str = String::new();
+        let mut decoded_token_str: String = String::new();
         unsafe {
             decoded_token_str = String::from_utf8_unchecked(decoded_token);
         }
-        let auditor_user_info = serde_json::from_str::<CMDBAuditUserInfo>(decoded_token_str.as_ref())?;
+        let auditor_user_info = serde_json::from_str::<CMDBAuditUserInfo>(&decoded_token_str)?;
         Ok(auditor_user_info)
     }
 
@@ -272,8 +272,8 @@ pub mod job_controller {
                 ji.job_id,
                 &ji.node_address,
                 1, // TODO: job_type
-                aui.phone,
-                aui.name,
+                &aui.phone,
+                &aui.name,
                 &req.permitted,
                 &req.reject_reason,
                 // serde_json::to_string(&req)?.as_str(),
