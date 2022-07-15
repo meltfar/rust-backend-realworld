@@ -2,10 +2,9 @@ use std::io::Write;
 use std::ops::{Deref, DerefMut};
 
 use actix_web::{web, HttpServer};
-use futures::StreamExt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::types::chrono::NaiveDateTime;
-use sqlx::{Column, FromRow, Row};
+use sqlx::FromRow;
 
 use controllers::job_controller::job_controller;
 
@@ -134,40 +133,6 @@ impl DerefMut for MyNaiveDateTime {
 async fn test_for_sqlx(database_url: &str) -> anyhow::Result<sqlx::pool::Pool<sqlx::MySql>> {
     let pool = sqlx::MySqlPool::connect(database_url).await?;
 
-    log::info!("==================== run in low level ===================");
-
-    let ret = sqlx::query("SELECT * FROM matcher WHERE id > ? LIMIT 1")
-        .bind("123")
-        .fetch_one(&pool)
-        .await?;
-
-    for i in ret.columns() {
-        log::info!("{}", i.name());
-    }
-    let v = ret.get::<String, &str>("match_value");
-    log::info!("{}", v);
-
-    log::info!("=================== response mappings ====================");
-
-    let stream_ret = sqlx::query_as::<sqlx::MySql, MatcherModelMacro>(
-        "SELECT * FROM matcher WHERE match_value LIKE ? LIMIT 10",
-    )
-    .bind("%/v1.0%")
-    .fetch(&pool);
-
-    stream_ret
-        .for_each(|v| {
-            if let Ok(mm) = v {
-                log::info!("{:#?}", mm);
-            }
-            futures::future::ready(())
-        })
-        .await;
-
-    log::info!("==================== use macro to check validity and mapping ===================");
-
-    // let ret = sqlx::query_as!(MatcherModelMacro, "SELECT * FROM matcher WHERE id > ?", 32i32).fetch_all(&pool).await?;
-    // log::info!("{:#?}", ret);
     Ok(pool)
 }
 
@@ -199,52 +164,48 @@ async fn main() -> anyhow::Result<()> {
     let current_env = std::env::var("RUNTIME_ENV").unwrap_or("dev".to_string());
     let database_url = std::env::var("DATABASE_URL").unwrap();
 
+    std::env::set_var("RUST_BACKTRACE", "1");
+
     init_log(current_env);
 
     log::info!("connecting to database");
     let pool = test_for_sqlx(&database_url).await?;
 
-    log::info!("==================== use rbatis for mapping ===================");
-
-    // let rb = Rbatis::new();
-    // rb.link(&database_url).await?;
-
-    // let wrapper = rb
-    //     .new_wrapper()
-    //     .eq("version", 1u32)
-    //     .order_by(false, &["id"])
-    //     .limit(1);
-    // let ret = rb.fetch_by_wrapper::<Option<MatcherModel>>(wrapper).await?;
-    // log::info!("wocao, zhewanyi xingma:{:#?}", ret);
-
-    // let wrapper = rb
-    //     .new_wrapper()
-    //     .gt("version", 1u32)
-    //     .order_by(false, &["id"])
-    //     .limit(10);
-
-    // let ret = rb.fetch_list_by_wrapper::<MatcherModel>(wrapper).await?;
-    // log::info!("{:#?}", ret);
-
-    // let rb = std::sync::Arc::new(rb);
-
     HttpServer::new(move || {
         let json_config = web::JsonConfig::default().error_handler(|err, _req| {
-            actix_web::error::InternalError::from_response(
-                err,
-                actix_web::HttpResponse::InternalServerError().finish(),
-            )
-            .into()
+            // actix_web::error::InternalError::from_response(
+            //     err,
+            //     actix_web::HttpResponse::BadRequest().finish(),
+            // )
+            // .into()
+            log::error!("chuxianlecuowu");
+            log::error!("{}", err);
+            println!("{}", "jijile");
+            eprintln!("{}", err);
+            crate::utils::MyError::from(err).into()
         });
+        let logger = actix_web::middleware::Logger::default();
         actix_web::App::new()
+            .wrap(logger)
             .app_data(json_config)
             .app_data(web::Data::new(pool.clone()))
             // .app_data(web::Data::new(rb.clone()))
             .app_data(web::Data::new(reqwest::Client::new()))
-            .route("/editJob", web::to(job_controller::edit_job))
-            .route("/err", web::get().to(job_controller::error_return))
+            .service(
+                web::scope("/jiacrontab/v3/job")
+                    .route("/editJob", web::post().to(job_controller::edit_job))
+                    .route("/err", web::get().to(job_controller::error_return))
+                    .route(
+                        "/getPeriodJobStatus",
+                        web::get().to(job_controller::get_period_job_status),
+                    )
+                    .route(
+                        "/getPeriodJobData",
+                        web::post().to(job_controller::get_period_job_data),
+                    ),
+            )
     })
-    .bind(("127.0.0.1", 8086))?
+    .bind(("0.0.0.0", 8086))?
     .run()
     .await
     .map_err(|e| e.into())

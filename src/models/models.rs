@@ -58,22 +58,23 @@ pub mod models {
     use sqlx::{types::chrono, FromRow};
 
     #[derive(Debug, Deserialize, Serialize, FromRow)]
+    #[serde(rename_all = "camelCase")]
     pub struct AuditInfo {
-        pub id: u32,
-        pub job_id: u32,
+        pub id: i32,
+        pub job_id: i32,
         pub node_address: String,
-        #[serde(rename = "type")]
-        pub audit_type: i32,
+        pub r#type: i32,
         pub real_auditor: String,
         pub permitted: String,
-        pub reason: String,
+        pub reason: Option<String>,
         pub candidate_auditor: String,
         #[serde(with = "my_date_format")]
         pub created_at: chrono::NaiveDateTime,
         #[serde(with = "my_date_format")]
         pub updated_at: chrono::NaiveDateTime,
-        pub raw_body: String,
+        pub raw_body: Option<String>,
         pub real_auditor_name: String,
+        pub audit_group_id: i32,
     }
 
     impl AuditInfo {
@@ -110,7 +111,7 @@ pub mod models {
             auditor: &str,
             group_id: u32,
         ) -> Result<(), sqlx::Error> {
-            sqlx::query_as::<_, (i32, )>("INSERT INTO audit_info (job_id, node_address, type, candidate_auditor, audit_group_id) VALUES (?, ?, ?, ?, ?)").bind(job_id).bind(address).bind(job_type).bind(auditor).bind(group_id).fetch_one(pool).await.map(|_|())
+            sqlx::query_as::<_, (i32, )>("INSERT INTO audit_info (job_id, node_address, type, candidate_auditor, audit_group_id) VALUES (?, ?, ?, ?, ?)").bind(job_id).bind(address).bind(job_type).bind(auditor).bind(group_id).fetch_all(pool).await.map(|_|())
         }
 
         pub async fn get_job_info<T>(
@@ -134,7 +135,7 @@ pub mod models {
 
         pub async fn update_job_info(
             pool: &sqlx::MySqlPool,
-            job_id: u32,
+            job_id: i32,
             address: &str,
             job_type: i32,
             auditor: &str,

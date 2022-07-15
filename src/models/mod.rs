@@ -12,17 +12,27 @@ pub struct TimeArgs {
     pub second: String,
 }
 
+fn is_zero(num: &u32) -> bool {
+    *num == 0
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
+#[serde(default)]
 pub struct JobDetail {
     #[serde(rename = "ID")]
+    #[serde(skip_serializing_if = "is_zero")]
     pub id: u32,
     #[serde(rename = "CreatedAt")]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub created_at: String,
     #[serde(rename = "UpdatedAt")]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub updated_at: String,
     #[serde(rename = "DeletedAt")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<String>,
     #[serde(rename = "name")]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub name: String,
     #[serde(rename = "groupID")]
     pub group_id: u32,
@@ -35,8 +45,10 @@ pub struct JobDetail {
     #[serde(rename = "lastCostTime")]
     pub last_cost_time: i32,
     #[serde(rename = "lastExecTime")]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub last_exec_time: String,
     #[serde(rename = "nextExecTime")]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub next_exec_time: String,
     #[serde(rename = "failed")]
     pub failed: bool,

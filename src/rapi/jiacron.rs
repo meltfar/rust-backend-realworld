@@ -17,3 +17,10 @@ pub async fn edit_job_call(
 ) -> Result<JobDetail, MyError> {
     call_api::<_, _, EditJobRequest<'_>>(client, addr, "CrontabJob.Edit", params).await
 }
+
+pub async fn get_job_call(client: &reqwest::Client, job_id: u32, addr: &str) -> Result<serde_json::Value, MyError> {
+    let mut tmp = serde_json::Map::new();
+    tmp.insert("group_id".to_string(), serde_json::Value::from(1u32));
+    tmp.insert("job_id".to_string(), serde_json::Value::from(job_id));
+    call_api::<_, _, _>(client, addr, "CrontabJob.Get", tmp).await
+}

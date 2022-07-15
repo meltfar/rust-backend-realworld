@@ -4,15 +4,44 @@ pub mod jiacron;
 pub use cmdb::cmdb_api;
 use crate::utils::MyError;
 
+#[derive(serde::Serialize)]
+struct ApiParams<'a, K: serde::Serialize> {
+    pub addr: &'a str,
+    pub method: &'a str,
+    pub params: K
+}
+
+#[derive(serde::Deserialize)]
+struct ApiResponse<R> {
+    pub code: i32,
+    pub msg: String,
+    pub data: R,
+}
+
 pub async fn call_api<R, T, K>(client: &reqwest::Client, addr: T, method_name: T, params: K) -> Result<R, MyError> where T: AsRef<str>, K: serde::Serialize, R: serde::de::DeserializeOwned {
-    let ret = client.post("http://10.25.97.205:20000/v1/callApi").json(&params).send().await?;
+    let ap = ApiParams {
+        addr: addr.as_ref(),
+        method: method_name.as_ref(),
+        params
+    };
+    let ret = client.post("http://192.168.150.73:20000/jiacrontab/v1/callApi").json(&ap).send().await?;
+    // let ret = client.post("https://postman-echo.com/post").json(&ap).send().await?;
+    // log::info!("{}", ret.text().await?);
+
     if ret.status() != 200 {
         let t = ret.text().await?;
         log::error!("failed to connect to api admin: {}", &t);
         return Err(crate::error!(t));
     }
 
-    ret.json().await.map_err(|e| e.into())
+    let ar = ret.json::<ApiResponse<R>>().await?;
+    if ar.code != 0 {
+        return Err(crate::utils::MyError::from_string(ar.msg));
+    }
+
+    Ok(ar.data)
+    // ar.map(|r|r.data).map_err(|e| e.into())
+    // Err(crate::error!("nonono"))
 }
 
 #[tokio::test]

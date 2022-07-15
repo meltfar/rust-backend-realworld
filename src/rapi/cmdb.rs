@@ -7,8 +7,6 @@ pub mod cmdb_api {
         pub email: String,
     }
 
-    const CMDB_SERVER_ADDR: &'static str = "http://10.25.224.61:8080";
-
     pub(crate) fn get_prefix<'a, T>(url: T) -> &'a str
         where
             T: AsRef<str> + 'a,
@@ -34,7 +32,7 @@ pub mod cmdb_api {
         client
             .get(format!(
                 "{}://{}/aiops-api/user/queryUserByHost.json",
-                prefix, CMDB_SERVER_ADDR
+                prefix, cmdb_url
             ))
             .query(&[("groupId", group_id)])
             .send()
@@ -56,7 +54,7 @@ pub mod cmdb_api {
         dest_server_addr: &str,
         task_info: &impl TaskInfoLike,
     ) -> Result<(), reqwest::Error> {
-        println!("mail: {} - {}", task_info.get_name(), callback_url);
+        log::info!("mail: {} - {}", task_info.get_name(), callback_url);
         Ok(())
     }
 
@@ -65,7 +63,7 @@ pub mod cmdb_api {
         dest_server_addr: &str,
         task_info: impl TaskInfoLike,
     ) -> Result<(), reqwest::Error> {
-        println!("sms: {} - {}", dest_server_addr, task_info.get_name());
+        log::info!("sms: {} - {}", dest_server_addr, task_info.get_name());
         Ok(())
     }
 }
