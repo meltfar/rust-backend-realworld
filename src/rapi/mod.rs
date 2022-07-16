@@ -8,7 +8,7 @@ use crate::utils::MyError;
 struct ApiParams<'a, K: serde::Serialize> {
     pub addr: &'a str,
     pub method: &'a str,
-    pub params: K
+    pub params: K,
 }
 
 #[derive(serde::Deserialize)]
@@ -22,9 +22,10 @@ pub async fn call_api<R, T, K>(client: &reqwest::Client, addr: T, method_name: T
     let ap = ApiParams {
         addr: addr.as_ref(),
         method: method_name.as_ref(),
-        params
+        params,
     };
-    let ret = client.post("http://192.168.150.73:20000/jiacrontab/v1/callApi").json(&ap).send().await?;
+    let admin_url = std::env::var("ADMIN_URL").unwrap_or("192.168.150.73:20000".to_string());
+    let ret = client.post(format!("http://{}/jiacrontab/v1/callApi", admin_url)).json(&ap).send().await?;
     // let ret = client.post("https://postman-echo.com/post").json(&ap).send().await?;
     // log::info!("{}", ret.text().await?);
 
