@@ -20,16 +20,16 @@ mod my_date_format {
     const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
 
     pub fn serialize<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         let s = format!("{}", date.format(FORMAT));
         serializer.serialize_str(&s)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         NaiveDateTime::parse_from_str(&s, FORMAT).map_err(serde::de::Error::custom)
@@ -43,8 +43,8 @@ mod my_date_format_optional {
     const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
 
     pub fn serialize<S>(date: &Option<NaiveDateTime>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         if let Some(s) = date {
             let s = format!("{}", s.format(FORMAT));
@@ -55,8 +55,8 @@ mod my_date_format_optional {
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<NaiveDateTime>, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         if s == "" {
@@ -96,8 +96,8 @@ const FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S";
 
 impl Serialize for MyNaiveDateTime {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         let s = self.format(FORMAT_STR);
         serializer.serialize_str(&s.to_string())
@@ -106,8 +106,8 @@ impl Serialize for MyNaiveDateTime {
 
 impl<'de> Deserialize<'de> for MyNaiveDateTime {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         NaiveDateTime::parse_from_str(&s, FORMAT_STR)
@@ -178,10 +178,6 @@ async fn main() -> anyhow::Result<()> {
             //     actix_web::HttpResponse::BadRequest().finish(),
             // )
             // .into()
-            log::error!("chuxianlecuowu");
-            log::error!("{}", err);
-            println!("{}", "jijile");
-            eprintln!("{}", err);
             crate::utils::MyError::from(err).into()
         });
         let logger = actix_web::middleware::Logger::default();
@@ -202,11 +198,13 @@ async fn main() -> anyhow::Result<()> {
                     .route(
                         "/getPeriodJobData",
                         web::post().to(job_controller::get_period_job_data),
-                    ),
+                    )
+                    // TODO: change this url to a proper one, then test it.
+                    .route("/group/simpleList", web::get().to(job_controller::get_simple_list)),
             )
     })
-    .bind(("0.0.0.0", 8086))?
-    .run()
-    .await
-    .map_err(|e| e.into())
+        .bind(("0.0.0.0", 8086))?
+        .run()
+        .await
+        .map_err(|e| e.into())
 }

@@ -113,12 +113,19 @@ pub mod job_controller {
         req: web::Json<GetJobRequest>,
         client: web::Data<reqwest::Client>,
     ) -> Response<impl actix_web::Responder> {
-        let ret = crate::rapi::jiacron::get_job_call(&client, req.job_id, &req.addr).await?;
+        let ret = jiacron::get_job_call(&client, req.job_id, &req.addr).await?;
         // let ret = AuditInfo::get_job_info(&pool, req.job_id, &req.addr, 1).await?;
         return Ok(web::Json(CommonResponse {
             code: 200,
             data: ret,
         }));
+    }
+
+    pub async fn get_simple_list(client: web::Data<reqwest::Client>) -> Response<impl actix_web::Responder> {
+        let cmdb_url = std::env::var("CMDB_URL").unwrap_or("10.25.224.61:8080".to_string());
+        // TODO: update this url to fit reality.
+        let ret = client.get(format!("http://{}/aiops-api/xxxx/simpleList", cmdb_url)).send().await?;
+        return Ok(actix_web::HttpResponse::Ok().content_type("application/json").streaming(ret.bytes_stream()));
     }
 
     fn generate_callback_url(addr: &str, id: u32, r#type: i32) -> String {
@@ -141,8 +148,8 @@ pub mod job_controller {
         );
     }
 
-    fn get_auditor_info_by_header<'a>(
-        auditor_token: &'a str,
+    fn get_auditor_info_by_header(
+        auditor_token: &str,
     ) -> Result<CMDBAuditUserInfo, MyError> {
         let auditor_token = auditor_token
             .split(".")
@@ -255,10 +262,7 @@ pub mod job_controller {
                 auth_payload.user_id.into(),
                 auth_payload.group_id.into(),
                 &req.addr,
-            )
-            .await?
-                <= 0
-            {
+            ).await? <= 0 {
                 // return Err(actix_web::error::ErrorForbidden("所属组无操作权限"));
                 return MyError::new_result(403, "所属组无操作权限");
             }
@@ -290,8 +294,7 @@ pub mod job_controller {
                     job: &prepared_job,
                 },
                 &req.addr,
-            )
-            .await?;
+            ).await?;
             // created_username = ret.created_username;
             // job_name = ret.name;
             // created_job_id = ret.id;
@@ -311,8 +314,7 @@ pub mod job_controller {
                 TYPE,
                 &users_str,
                 req.audit_group_id,
-            )
-            .await?;
+            ).await?;
 
             let cc = client.clone();
             let ur = generate_callback_url(req.addr.as_ref(), ret_job_detail.id, TYPE);
@@ -342,8 +344,7 @@ pub mod job_controller {
                 &req.permitted.unwrap(),
                 &req.reject_reason.unwrap(),
                 // serde_json::to_string(&req)?.as_str(),
-            )
-            .await?;
+            ).await?;
         }
 
         return Ok(web::Json(CommonResponse {

@@ -26,7 +26,7 @@ sqlx = { version = "*", default-features = false, features = [
 ] }
 futures = "*"
 dotenv = "*"
-reqwest = { version = "*", features = ["json"] }
+reqwest = { version = "*", features = ["json", "stream"] }
 thiserror = "*"
 jsonwebtoken = { version = "*", default-features = false }
 urlencoding = "*"
