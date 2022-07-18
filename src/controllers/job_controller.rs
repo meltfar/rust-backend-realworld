@@ -123,8 +123,7 @@ pub mod job_controller {
 
     pub async fn get_simple_list(client: web::Data<reqwest::Client>) -> Response<impl actix_web::Responder> {
         let cmdb_url = std::env::var("CMDB_URL").unwrap_or("10.25.224.61:8080".to_string());
-        // TODO: update this url to fit reality.
-        let ret = client.get(format!("http://{}/aiops-api/xxxx/simpleList", cmdb_url)).send().await?;
+        let ret = client.get(format!("http://{}/aiops-api/microServiceGroup/simpleList", cmdb_url)).send().await?;
         return Ok(actix_web::HttpResponse::Ok().content_type("application/json").streaming(ret.bytes_stream()));
     }
 

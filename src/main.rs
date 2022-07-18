@@ -146,11 +146,11 @@ fn init_log(env: String) {
         .format(|buf, record| {
             writeln!(
                 buf,
-                "{}:{} {} [{}] - {}",
-                record.file().unwrap_or("0"),
-                record.line().unwrap_or(0),
+                "{} [{}] {}:{} - {}",
                 chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%3f"),
                 record.level(),
+                record.file().unwrap_or("0"),
+                record.line().unwrap_or(0),
                 record.args()
             )
         })
@@ -199,7 +199,6 @@ async fn main() -> anyhow::Result<()> {
                         "/getPeriodJobData",
                         web::post().to(job_controller::get_period_job_data),
                     )
-                    // TODO: change this url to a proper one, then test it.
                     .route("/group/simpleList", web::get().to(job_controller::get_simple_list)),
             )
     })
