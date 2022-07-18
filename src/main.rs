@@ -1,10 +1,10 @@
 use std::io::Write;
 use std::ops::{Deref, DerefMut};
 
-use actix_web::{web, HttpServer};
+use actix_web::{HttpServer, web};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sqlx::types::chrono::NaiveDateTime;
 use sqlx::FromRow;
+use sqlx::types::chrono::NaiveDateTime;
 
 use controllers::job_controller::job_controller;
 
@@ -164,6 +164,8 @@ async fn main() -> anyhow::Result<()> {
     let current_env = std::env::var("RUNTIME_ENV").unwrap_or("dev".to_string());
     let database_url = std::env::var("DATABASE_URL").unwrap();
 
+    sea_query::sea_query_driver_mysql!();
+
     std::env::set_var("RUST_BACKTRACE", "1");
 
     init_log(current_env);
@@ -199,7 +201,8 @@ async fn main() -> anyhow::Result<()> {
                         "/getPeriodJobData",
                         web::post().to(job_controller::get_period_job_data),
                     )
-                    .route("/group/simpleList", web::get().to(job_controller::get_simple_list)),
+                    .route("/group/simpleList", web::get().to(job_controller::get_simple_list))
+                    .route("/getJobs", web::get().to(job_controller::get_jobs)),
             )
     })
         .bind(("0.0.0.0", 8086))?

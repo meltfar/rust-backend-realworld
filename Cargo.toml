@@ -31,3 +31,4 @@ thiserror = "*"
 jsonwebtoken = { version = "*", default-features = false }
 urlencoding = "*"
 base64 = "*"
+sea-query = { version = "*", default-features = false, features = ["derive", "backend-mysql", "sqlx-mysql", "thread-safe", "with-chrono", "attr"] }

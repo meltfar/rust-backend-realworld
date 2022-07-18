@@ -2,14 +2,14 @@ pub mod job_controller {
     use actix_web::web;
 
     use crate::{
-        models::models::models, models::AuditInfo, models::JobDetail, models::TimeArgs,
+        models::AuditInfo, models::JobDetail, models::models::models, models::TimeArgs,
         rapi::cmdb_api, rapi::jiacron,
     };
     // use crate::models::models::models;
     use crate::error;
     use crate::utils::MyError;
 
-    // use models as entity_models;
+// use models as entity_models;
 
     // use models as entity_models;
 
@@ -119,6 +119,52 @@ pub mod job_controller {
             code: 200,
             data: ret,
         }));
+    }
+
+    pub async fn get_jobs(req: web::Query<serde_json::Value>, request: actix_web::HttpRequest, client: web::Data<reqwest::Client>, pool: web::Data<sqlx::MySqlPool>) -> Response<impl actix_web::Responder> {
+        let req = req.as_object().ok_or(error!("request payload is invalid"))?;
+        let job_type = req.get("jobType").ok_or(error!("job type must be provided"))?.as_i64().unwrap_or(0i64);
+        let page = match req.get("page") {
+            None => 1i64,
+            Some(p) => p.as_i64().unwrap_or_else(|| 1i64)
+        };
+        let limit = match req.get("limit") {
+            None => 10i64,
+            Some(p) => p.as_i64().unwrap_or(10i64)
+        };
+        let mut token = req.get("token").map(|f| f.as_str().unwrap_or(""));
+        if token.is_none() || token.unwrap().is_empty() {
+            token = Some(request.headers().get("Authorization").ok_or(error!("no token provided"))?.to_str()?);
+        }
+
+        let tokens = token.unwrap().split(".").collect::<Vec<&str>>();
+        if tokens.len() != 3 {
+            return Err(error!("token invalid"));
+        }
+
+        log::info!("{}", tokens[1]);
+
+        let auditor_info = serde_json::from_slice::<serde_json::Value>(base64::decode_config(tokens[1], base64::URL_SAFE)?.as_ref())?;
+
+        let id = auditor_info.get("id");
+        let phone = auditor_info.get("phone");
+        if id.is_none() || phone.is_none() {
+            return Err(error!("only authorized auditor allowed"));
+        }
+        let id = id.unwrap().as_i64().unwrap_or(0);
+        let phone = phone.unwrap().as_str().unwrap_or("");
+
+        let group_list = cmdb_api::get_microservice_group_simple_list(&client).await?;
+
+        // let group_id_list = group_list.iter().filter(|f| f.ops_contact_id as i64 == id).map(|v| v.id).collect::<Vec<u32>>();
+        let group_id_list = group_list.iter().filter(|f| f.ops_contact_id as i64 != 0).map(|v| v.id).collect::<Vec<u32>>();
+        if group_id_list.len() <= 0 {
+            return Err(error!("用户未担任任何组的运维负责人，请联系对应负责人审核"));
+        }
+
+        let ret = AuditInfo::get_job_info_list(&pool, phone, group_id_list, job_type, page, limit).await?;
+
+        Ok(web::Json(ret))
     }
 
     pub async fn get_simple_list(client: web::Data<reqwest::Client>) -> Response<impl actix_web::Responder> {

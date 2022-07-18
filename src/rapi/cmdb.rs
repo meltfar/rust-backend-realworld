@@ -7,6 +7,13 @@ pub mod cmdb_api {
         pub email: String,
     }
 
+    #[derive(serde::Deserialize, Debug)]
+    pub struct MicroserviceGroup {
+        pub id: u32,
+        #[serde(rename = "opsContactId")]
+        pub ops_contact_id: u32,
+    }
+
     pub(crate) fn get_prefix<'a, T>(url: T) -> &'a str
         where
             T: AsRef<str> + 'a,
@@ -16,6 +23,16 @@ pub mod cmdb_api {
         } else {
             "http"
         }
+    }
+
+    pub async fn get_microservice_group_simple_list(client: &reqwest::Client) -> Result<Vec<MicroserviceGroup>, reqwest::Error> {
+        let cmdb_url = std::env::var("CMDB_URL").unwrap_or("10.25.224.61:8080".to_string());
+
+        #[derive(serde::Deserialize)]
+        struct TmpRet {
+            result: Vec<MicroserviceGroup>,
+        }
+        client.get(format!("http://{}/aiops-api/microServiceGroup/simpleList", cmdb_url)).send().await?.json::<TmpRet>().await.map(|f| f.result)
     }
 
     pub async fn get_responsible_user_by_addr(
