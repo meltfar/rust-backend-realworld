@@ -26,7 +26,7 @@ pub mod errors {
 
         pub fn from_string<T>(msg: T) -> Self where T: ToString {
             Self {
-                status_code: 500,
+                status_code: 400,
                 message: msg.to_string(),
             }
         }

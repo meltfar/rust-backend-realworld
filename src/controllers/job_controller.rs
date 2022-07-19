@@ -26,7 +26,7 @@ pub mod job_controller {
         permitted: Option<String>,
         #[serde(rename = "auditorToken")]
         auditor_token: Option<String>,
-        #[serde(rename = "jobId")]
+        #[serde(rename = "jobID")]
         job_id: Option<u32>,
         addr: String,
         #[serde(rename = "rejectReason")]
@@ -61,7 +61,7 @@ pub mod job_controller {
         root: bool,
     }
 
-    #[derive(serde::Deserialize)]
+    #[derive(serde::Deserialize, Debug)]
     struct CMDBAuditUserInfo {
         id: u32,
         phone: String,
@@ -98,6 +98,15 @@ pub mod job_controller {
         addr: String,
     }
 
+    #[derive(serde::Deserialize, serde::Serialize)]
+    pub struct DelJobsRequest {
+        /**{"addr":"192.168.5.1:20002","jobIDs":[3,15],"action":"delete"} */
+        addr: String,
+        #[serde(rename = "jobIDs")]
+        job_ids: Vec<u32>,
+        action: String
+    }
+
     pub async fn get_period_job_status(
         req: web::Query<GetJobRequest>,
         pool: web::Data<sqlx::MySqlPool>,
@@ -119,6 +128,26 @@ pub mod job_controller {
             code: 200,
             data: ret,
         }));
+    }
+
+    // TODO: test for deleting job
+    pub async fn del_job(req: web::Json<DelJobsRequest>, request: actix_web::HttpRequest, client: web::Data<reqwest::Client>, pool: web::Data<sqlx::MySqlPool>) -> Response<impl actix_web::Responder> {
+        let req = req.into_inner();
+        // currently we only handle delete action.
+        if req.action == "delete" {
+            // return Err(error!("仅支持删除行为"));
+            let ret = AuditInfo::del_jobs(&pool, &req.addr, req.job_ids.clone()).await?;
+            if ret<=0 {
+                log::warn!("{}", "待删除条目不在审核列表中");
+            }
+        }
+
+        let mut header = reqwest::header::HeaderMap::new();
+        request.headers().to_owned().into_iter().for_each(|f|{header.insert(f.0, f.1);});
+        let admin_url = std::env::var("ADMIN_URL").unwrap_or("192.168.150.73:20000".to_string());
+        let stream = client.post(format!("http://{}/jiacrontab/v2/node/action", admin_url)).headers(header).json(&req).send().await?.bytes_stream();
+        // TODO: call backend then return
+        Ok(actix_web::HttpResponse::Ok().streaming(stream))
     }
 
     pub async fn get_jobs(req: web::Query<serde_json::Value>, request: actix_web::HttpRequest, client: web::Data<reqwest::Client>, pool: web::Data<sqlx::MySqlPool>) -> Response<impl actix_web::Responder> {
@@ -156,8 +185,7 @@ pub mod job_controller {
 
         let group_list = cmdb_api::get_microservice_group_simple_list(&client).await?;
 
-        // let group_id_list = group_list.iter().filter(|f| f.ops_contact_id as i64 == id).map(|v| v.id).collect::<Vec<u32>>();
-        let group_id_list = group_list.iter().filter(|f| f.ops_contact_id as i64 != 0).map(|v| v.id).collect::<Vec<u32>>();
+        let group_id_list = group_list.iter().filter(|f| f.ops_contact_id as i64 == id).map(|v| v.id).collect::<Vec<u32>>();
         if group_id_list.len() <= 0 {
             return Err(error!("用户未担任任何组的运维负责人，请联系对应负责人审核"));
         }
@@ -202,7 +230,7 @@ pub mod job_controller {
             .next()
             .ok_or(MyError::from_string("auditor token not valid"))?;
 
-        let decoded_token = base64::decode(auditor_token)?;
+        let decoded_token = base64::decode_config(auditor_token, base64::URL_SAFE)?;
         let decoded_token_str: String;
         unsafe {
             decoded_token_str = String::from_utf8_unchecked(decoded_token);
@@ -267,7 +295,7 @@ pub mod job_controller {
             }
 
             if req.auditor_token.is_none() || auditor_user_info.is_err() {
-                return Err(MyError::from_string("no auditor token provided"));
+                return Err(MyError::from_string(format!("no auditor token provided: {:#?}", auditor_user_info)));
             }
 
             // let uid = auditor_user_info.unwrap().id;
@@ -291,12 +319,13 @@ pub mod job_controller {
                 .to_str()
                 .unwrap_or("");
 
-            let auth_token_decoded = base64::decode(
+            let auth_token_decoded = base64::decode_config(
                 auth_token
                     .split(".")
                     .collect::<Vec<&str>>()
                     .get(1)
                     .ok_or(error!("jwt token validate failed"))?,
+                base64::URL_SAFE
             )?;
             let auth_token_decoded = String::from_utf8(auth_token_decoded)?;
             let auth_payload =
@@ -347,11 +376,9 @@ pub mod job_controller {
 
         // when run to here, the result of remote api call was success.
         if !is_auditing && job_info.is_err() {
-            let users_str = users
-                .into_iter()
-                .map(|f| f.phone)
-                .collect::<Vec<String>>()
-                .join("-");
+            let users_str = users.iter().map(|f| f.phone.as_str())
+            .collect::<Vec<&str>>()
+            .join("-");
             AuditInfo::create_job_info(
                 &pool,
                 ret_job_detail.id,
@@ -364,13 +391,16 @@ pub mod job_controller {
             let cc = client.clone();
             let ur = generate_callback_url(req.addr.as_ref(), ret_job_detail.id, TYPE);
             actix_web::rt::spawn(async move {
+                let users = users;
+                let user_phones = users.iter().map(|f|f.phone.as_str()).collect::<Vec<&str>>();
+                let user_emails = users.iter().map(|f|f.email.as_str()).collect::<Vec<&str>>();
                 let addrr = req.addr.clone();
                 let cjd = CronJobDetail {
                     name: ret_job_detail.name.clone(),
                     created_username: ret_job_detail.created_username.clone(),
                 };
-                let _ = cmdb_api::send_mail(cc, ur.as_str(), &addrr, &cjd).await;
-                cmdb_api::send_sms(client, &addrr, cjd).await
+                let _ = cmdb_api::send_mail(cc.clone(), ur.as_str(), &addrr, user_emails,&cjd).await;
+                cmdb_api::send_sms(cc, &addrr, user_phones,cjd).await
             });
         } else if is_auditing && job_info.is_ok() {
             let ji = job_info.unwrap();
@@ -387,7 +417,7 @@ pub mod job_controller {
                 &aui.phone,
                 &aui.name,
                 &req.permitted.unwrap(),
-                &req.reject_reason.unwrap(),
+                &req.reject_reason.unwrap_or(String::new()),
                 // serde_json::to_string(&req)?.as_str(),
             ).await?;
         }

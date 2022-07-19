@@ -198,7 +198,8 @@ async fn main() -> anyhow::Result<()> {
                         web::post().to(job_controller::get_period_job_data),
                     )
                     .route("/group/simpleList", web::get().to(job_controller::get_simple_list))
-                    .route("/getJobs", web::get().to(job_controller::get_jobs)),
+                    .route("/getJobs", web::get().to(job_controller::get_jobs))
+                    .route("/delJobs", web::post().to(job_controller::del_job)),
             )
     })
         .bind(("0.0.0.0", 8086))?

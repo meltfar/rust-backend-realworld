@@ -3,9 +3,9 @@ pub mod models {
     use serde::{Deserialize, Serialize};
     use sqlx::{FromRow, types::chrono};
 
-    use sea_query_driver_mysql::bind_query_as;
-
     sea_query::sea_query_driver_mysql!();
+    use sea_query_driver_mysql::{bind_query, bind_query_as};
+
     pub mod my_date_format {
         use chrono::NaiveDateTime;
         use serde::{self, Deserialize, Deserializer, Serializer};
@@ -195,6 +195,16 @@ pub mod models {
                 data: ret,
                 total: count_ret.0 as u32,
             })
+        }
+
+        pub async fn del_jobs(pool: &sqlx::MySqlPool, addr: &str, job_ids: Vec<u32>) -> Result<u32, sqlx::Error> {
+            let query = sea_query::Query::delete().from_table(AuditInfoDef::Table).and_where(sea_query::Expr::col(AuditInfoDef::NodeAddress).eq(addr)).and_where(sea_query::Expr::col(AuditInfoDef::JobId).is_in(job_ids)).to_owned();
+            log::debug!("about to run: {}", query.to_string(sea_query::MysqlQueryBuilder));
+            
+            let (sql, args) = query.build(sea_query::MysqlQueryBuilder);
+            let ret = bind_query(sqlx::query(&sql), &args).execute(pool).await?;
+
+            Ok(ret.rows_affected() as u32)
         }
     }
 
