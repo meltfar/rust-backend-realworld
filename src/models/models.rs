@@ -1,8 +1,11 @@
 pub mod models {
-    use sea_query::{ConditionalStatement, enum_def};
+    use sea_query::enum_def;
     use serde::{Deserialize, Serialize};
     use sqlx::{FromRow, types::chrono};
 
+    use sea_query_driver_mysql::bind_query_as;
+
+    sea_query::sea_query_driver_mysql!();
     pub mod my_date_format {
         use chrono::NaiveDateTime;
         use serde::{self, Deserialize, Deserializer, Serializer};
@@ -159,35 +162,38 @@ pub mod models {
             let mut cond = sea_query::Cond::all().add(sea_query::Cond::any().add(sea_query::Expr::col(AuditInfoDef::AuditGroupId).is_in(group_id_list)).add(sea_query::Expr::col(AuditInfoDef::CandidateAuditor).like(format!("%{}%", phone))));
             let mut query = sea_query::Query::select().from(AuditInfoDef::Table).limit(limit as u64).offset(((page - 1) * limit) as u64).to_owned();
 
-            let mut sql = String::from("SELECT * FROM WHERE audit_group_id IN (?) OR candidate_auditor LIKE ? ");
             match job_type {
                 1 => {
-                    sql.push_str("AND WHERE permitted = 'yes'");
                     cond = cond.add(sea_query::Expr::col(AuditInfoDef::Permitted).eq("yes"));
                 }
                 2 => {
-                    sql.push_str("AND WHERE permitted = 'no'");
                     cond = cond.add(sea_query::Expr::col(AuditInfoDef::Permitted).eq("no"));
                 }
                 3 => {}
                 0 | _ => {
-                    sql.push_str("AND WHERE permitted = ''");
                     cond = cond.add(sea_query::Expr::col(AuditInfoDef::Permitted).eq(""));
                 }
             }
-            sql.push_str(" LIMIT ? OFFSET ?");
 
             query.cond_where(cond);
 
-            // let _ret = sqlx::query_as::<_, AuditInfo>(sql.as_str()).fetch_all(pool).await?;
-            let out = query.clone().expr(sea_query::Func::count(sea_query::Expr::value(1u32))).to_string(sea_query::MysqlQueryBuilder);
-            log::info!("{}", out);
-            // TODO: expand all columns into this array, also try to find out is there a method to pass a '*' in it.
-            log::info!("{}", query.columns([AuditInfoDef::Id]).to_string(sea_query::MysqlQueryBuilder));
+            // get count
+            let count_query = query.clone().expr(sea_query::Func::count(sea_query::Expr::value(1u32))).to_owned();
+            log::info!("{}", count_query.to_string(sea_query::MysqlQueryBuilder));
+
+            let (count_sql, count_args) = count_query.build(sea_query::MysqlQueryBuilder);
+            let count_ret = bind_query_as(sqlx::query_as::<_, (i64, )>(count_sql.as_str()), &count_args).fetch_one(pool).await?;
+
+            // pass a '*' in it.
+            // fetch result
+            let exec_query = query.column(sea_query::ColumnRef::Asterisk);
+            let (sql, params) = exec_query.build(sea_query::MysqlQueryBuilder);
+            log::debug!("{}", exec_query.to_string(sea_query::MysqlQueryBuilder));
+            let ret = bind_query_as(sqlx::query_as::<_, AuditInfo>(sql.as_str()), &params).fetch_all(pool).await?;
 
             Ok(JobInfoResponse {
-                data: vec![],
-                total: 0,
+                data: ret,
+                total: count_ret.0 as u32,
             })
         }
     }

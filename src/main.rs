@@ -130,11 +130,8 @@ impl DerefMut for MyNaiveDateTime {
     }
 }
 
-async fn test_for_sqlx(database_url: &str) -> anyhow::Result<sqlx::pool::Pool<sqlx::MySql>> {
-    let pool = sqlx::MySqlPool::connect(database_url).await?;
-
-    Ok(pool)
-}
+// async fn test_for_sqlx(database_url: &str) -> anyhow::Result<sqlx::pool::Pool<sqlx::MySql>> {
+// }
 
 fn init_log(env: String) {
     let log_level = if env.to_lowercase() == "dev" {
@@ -164,14 +161,13 @@ async fn main() -> anyhow::Result<()> {
     let current_env = std::env::var("RUNTIME_ENV").unwrap_or("dev".to_string());
     let database_url = std::env::var("DATABASE_URL").unwrap();
 
-    sea_query::sea_query_driver_mysql!();
-
     std::env::set_var("RUST_BACKTRACE", "1");
 
     init_log(current_env);
 
-    log::info!("connecting to database");
-    let pool = test_for_sqlx(&database_url).await?;
+    log::info!("connecting to database: {}", &database_url);
+    let pool = sqlx::MySqlPool::connect(database_url.as_str()).await.unwrap();
+    // let pool = test_for_sqlx(&database_url).await?;
 
     HttpServer::new(move || {
         let json_config = web::JsonConfig::default().error_handler(|err, _req| {
