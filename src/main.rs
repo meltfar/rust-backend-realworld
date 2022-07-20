@@ -199,7 +199,7 @@ async fn main() -> anyhow::Result<()> {
                     )
                     .route("/group/simpleList", web::get().to(job_controller::get_simple_list))
                     .route("/getJobs", web::get().to(job_controller::get_jobs))
-                    .route("/delJobs", web::post().to(job_controller::del_job)),
+                    .route("/cronjob/action", web::post().to(job_controller::crontab_job_action)),
             )
     })
         .bind(("0.0.0.0", 8086))?

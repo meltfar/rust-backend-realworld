@@ -131,23 +131,22 @@ pub mod job_controller {
     }
 
     // TODO: test for deleting job
-    pub async fn del_job(req: web::Json<DelJobsRequest>, request: actix_web::HttpRequest, client: web::Data<reqwest::Client>, pool: web::Data<sqlx::MySqlPool>) -> Response<impl actix_web::Responder> {
+    pub async fn crontab_job_action(req: web::Json<DelJobsRequest>, request: actix_web::HttpRequest, client: web::Data<reqwest::Client>, pool: web::Data<sqlx::MySqlPool>) -> Response<impl actix_web::Responder> {
         let req = req.into_inner();
-        // currently we only handle delete action.
+        // currently we only handle deletion action.
         if req.action == "delete" {
-            // return Err(error!("仅支持删除行为"));
             let ret = AuditInfo::del_jobs(&pool, &req.addr, req.job_ids.clone()).await?;
-            if ret<=0 {
+            if ret <= 0 {
                 log::warn!("{}", "待删除条目不在审核列表中");
             }
         }
 
         let mut header = reqwest::header::HeaderMap::new();
-        request.headers().to_owned().into_iter().for_each(|f|{header.insert(f.0, f.1);});
+        request.headers().to_owned().into_iter().for_each(|f|{if f.0 == "Authorization" || f.0 == "token" || f.0 == "Cookie" {header.insert(f.0, f.1);}});
         let admin_url = std::env::var("ADMIN_URL").unwrap_or("192.168.150.73:20000".to_string());
-        let stream = client.post(format!("http://{}/jiacrontab/v2/node/action", admin_url)).headers(header).json(&req).send().await?.bytes_stream();
-        // TODO: call backend then return
-        Ok(actix_web::HttpResponse::Ok().streaming(stream))
+        let stream = client.post(format!("http://{}/jiacrontab/v2/crontab/job/action", admin_url)).headers(header).json(&req).send().await?.bytes_stream();
+        // call backend then return
+        Ok(actix_web::HttpResponse::Ok().content_type("application/json").streaming(stream))
     }
 
     pub async fn get_jobs(req: web::Query<serde_json::Value>, request: actix_web::HttpRequest, client: web::Data<reqwest::Client>, pool: web::Data<sqlx::MySqlPool>) -> Response<impl actix_web::Responder> {
