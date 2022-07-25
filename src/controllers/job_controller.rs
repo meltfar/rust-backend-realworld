@@ -203,7 +203,7 @@ pub mod job_controller {
     fn generate_callback_url(addr: &str, id: u32, r#type: i32) -> String {
         let input = format!(
             "http://{}/#/edit/{}?id={}&addr={}&tabKey={}&mode=audit&token=",
-            "app.c.vip.migu.cn",
+            "app.c.vip.migu.cn/jiacrontab",
             if r#type == 1 {
                 "crontab_job"
             } else {
