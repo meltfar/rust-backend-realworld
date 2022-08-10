@@ -4,12 +4,12 @@ pub use errors::errors::MyError;
 pub mod errors;
 #[macro_export]
 macro_rules! error {
-    ($msg: ident) => {
+    ($msg: expr) => {
         $crate::utils::MyError::from_string($msg)
     };
-    ($msg: literal) => {
-        $crate::utils::MyError::from_string($msg)
-    };
+    // ($msg: literal) => {
+    //     $crate::utils::MyError::from_string($msg)
+    // };
 }
 
 pub trait LogExt {

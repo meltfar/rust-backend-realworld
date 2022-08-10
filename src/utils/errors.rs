@@ -113,10 +113,15 @@ pub mod errors {
     // Note: when calculating significance for trait implements, conditions after WHERE would not be consider in.
     // Note: so implement below overlap any possible future implements, the FROM trait would never be able to imply anymore. Neither From<String> nor From<&str> can be implied.
     impl<T> From<T> for MyError where T: std::error::Error + Send + Sync + 'static {
+        #[track_caller]
         fn from(err: T) -> Self {
+            let caller = std::panic::Location::caller();
+            let err_str = err.to_string();
+            log::error!("[{}:{}] {}", caller.file(), caller.line(), &err_str);
+            
             Self {
                 status_code: 500,
-                message: err.to_string(),
+                message: err_str,
             }
         }
     }
